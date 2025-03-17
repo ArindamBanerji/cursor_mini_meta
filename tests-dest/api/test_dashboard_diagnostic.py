@@ -15,6 +15,7 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import Request
 from fastapi.responses import RedirectResponse
+import time
 
 from controllers.dashboard_controller import show_dashboard, redirect_to_dashboard
 from api.test_helpers import unwrap_dependencies, create_controller_test
@@ -40,21 +41,31 @@ def mock_state_manager():
     return manager
 
 # Diagnostic tests
-@pytest.mark.asyncio
-async 
 def setup_module(module):
     """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    logger.info("Setting up test module")
     os.environ["PYTEST_CURRENT_TEST"] = "True"
     
 def teardown_module(module):
     """Clean up after the test module"""
-    logger.info("Tearing down test module")
     if "PYTEST_CURRENT_TEST" in os.environ:
         del os.environ["PYTEST_CURRENT_TEST"]
-def test_dashboard_direct(mock_request):
-    """Test calling the dashboard controller directly."""
+
+@pytest.mark.asyncio
+async def test_dashboard_direct(mock_request):
+    """Test the dashboard controller directly."""
     print("\n--- Testing dashboard controller directly ---")
+    start_time = time.time()
+    
+    # Call the function
+    response = await show_dashboard(mock_request)
+    
+    # Verify response
+    assert isinstance(response, RedirectResponse)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/dashboard"
+    
+    # Print diagnostic information
+    print(f"Direct approach execution time: {time.time() - start_time:.6f} seconds")
     
     # Save original state manager
     original_state_manager = state_manager.get

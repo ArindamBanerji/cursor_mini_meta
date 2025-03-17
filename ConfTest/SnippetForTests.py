@@ -5,21 +5,38 @@ SnippetForTests.py
 A utility script to add or remove code snippets from test files.
 
 Usage:
-    python SnippetForTests.py -source "path/to/tests" -snippet "path/to/snippet.txt" -option "ADD"
-    python SnippetForTests.py -source "path/to/tests" -option "REMOVE"
+    python SnippetForTests.py -source "path/to/tests" -snippet "path/to/snippet.txt" -option "ADD" [--backup] [--check-only]
+    python SnippetForTests.py -source "path/to/tests" -option "REMOVE" [--backup]
     python SnippetForTests.py -source "path/to/tests" -option "ADD" --check-only
 
 This script will find all "test_*.py" files in the specified directory tree and
 either add a code snippet to the beginning of each file or remove a previously added snippet.
 The --check-only flag allows checking files without modifying them.
+The --backup flag creates .bak files before making changes.
+
+Parameters:
+    -source: Directory containing test files (required)
+    -snippet: Path to snippet file (required for ADD)
+    -option: ADD or REMOVE (required)
+    --backup: Create backup files before modifying
+    --check-only: Only check files, don't modify them
 """
 
 import argparse
 import os
 import sys
 import re
+import shutil
 from pathlib import Path
 import ast
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Marker comments to identify the snippet
 SNIPPET_START_MARKER = "# BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE"
@@ -38,10 +55,13 @@ def validate_path(path):
     Raises:
         ValueError: If path doesn't exist
     """
-    path_obj = Path(path)
-    if not path_obj.exists():
-        raise ValueError(f"Path does not exist: {path}")
-    return path_obj
+    try:
+        path_obj = Path(path).resolve()
+        if not path_obj.exists():
+            raise ValueError(f"Path does not exist: {path}")
+        return path_obj
+    except Exception as e:
+        raise ValueError(f"Invalid path {path}: {str(e)}")
 
 def find_test_files(root_dir):
     """
@@ -53,13 +73,23 @@ def find_test_files(root_dir):
     Returns:
         List of Path objects for test files
     """
-    root_path = Path(root_dir)
-    test_files = []
-    
-    for path in root_path.glob('**/test_*.py'):
-        test_files.append(path)
-    
-    return test_files
+    try:
+        root_path = Path(root_dir)
+        test_files = []
+        
+        for path in root_path.glob('**/test_*.py'):
+            if path.is_file():
+                test_files.append(path)
+        
+        if not test_files:
+            logger.warning(f"No test files found in {root_dir}")
+        else:
+            logger.info(f"Found {len(test_files)} test files")
+            
+        return test_files
+    except Exception as e:
+        logger.error(f"Error finding test files: {e}")
+        raise
 
 def read_file_content(file_path):
     """
@@ -71,19 +101,33 @@ def read_file_content(file_path):
     Returns:
         File content as string
     """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Error reading file {file_path}: {e}")
+        raise
 
-def write_file_content(file_path, content):
+def write_file_content(file_path, content, create_backup=False):
     """
     Write content to a file.
     
     Args:
         file_path: Path to file
         content: Content to write
+        create_backup: Whether to create a backup before writing
     """
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(content)
+    try:
+        if create_backup:
+            backup_path = str(file_path) + '.bak'
+            shutil.copy2(file_path, backup_path)
+            logger.info(f"Created backup at {backup_path}")
+            
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+    except Exception as e:
+        logger.error(f"Error writing to file {file_path}: {e}")
+        raise
 
 def is_valid_python(code):
     """
@@ -98,7 +142,11 @@ def is_valid_python(code):
     try:
         ast.parse(code)
         return True
-    except SyntaxError:
+    except SyntaxError as e:
+        logger.error(f"Invalid Python syntax: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Error checking Python syntax: {e}")
         return False
 
 def extract_useful_code_from_py_file(file_path):
@@ -125,7 +173,7 @@ def extract_useful_code_from_py_file(file_path):
                     content = '\n'.join(content_lines[i:])
                     break
     except SyntaxError:
-        # If we can't parse it, use it as-is
+        logger.warning(f"Syntax error in {file_path}, using raw content")
         pass
     
     # Remove any if __name__ == "__main__" block
@@ -139,8 +187,8 @@ def extract_useful_code_from_py_file(file_path):
         
         if main_block_start is not None:
             content = '\n'.join(lines[:main_block_start])
-    except Exception:
-        # If something goes wrong, use it as-is
+    except Exception as e:
+        logger.warning(f"Error removing __main__ block: {e}")
         pass
     
     return content.strip()
@@ -164,13 +212,14 @@ def prepare_snippet_content(snippet_path):
         # For other files, just read the content
         return read_file_content(snippet_path)
 
-def add_snippet(file_path, snippet_content):
+def add_snippet(file_path, snippet_content, create_backup=False):
     """
     Add snippet to the beginning of a file.
     
     Args:
         file_path: Path to file
         snippet_content: Snippet to add
+        create_backup: Whether to create a backup before modifying
         
     Returns:
         Tuple of (success, message)
@@ -192,18 +241,19 @@ def add_snippet(file_path, snippet_content):
             return False, f"Adding snippet would create invalid Python syntax in {file_path}"
         
         # Write new content
-        write_file_content(file_path, new_content)
+        write_file_content(file_path, new_content, create_backup)
         return True, f"Snippet added to {file_path}"
     
     except Exception as e:
         return False, f"Error adding snippet to {file_path}: {str(e)}"
 
-def remove_snippet(file_path):
+def remove_snippet(file_path, create_backup=False):
     """
     Remove snippet from a file.
     
     Args:
         file_path: Path to file
+        create_backup: Whether to create a backup before modifying
         
     Returns:
         Tuple of (success, message)
@@ -225,13 +275,13 @@ def remove_snippet(file_path):
             return False, f"Removing snippet would create invalid Python syntax in {file_path}"
         
         # Write new content
-        write_file_content(file_path, new_content)
+        write_file_content(file_path, new_content, create_backup)
         return True, f"Snippet removed from {file_path}"
     
     except Exception as e:
         return False, f"Error removing snippet from {file_path}: {str(e)}"
 
-def process_files(test_files, snippet_path=None, add=True):
+def process_files(test_files, snippet_path=None, add=True, create_backup=False, check_only=False):
     """
     Process all test files to add or remove snippet.
     
@@ -239,6 +289,8 @@ def process_files(test_files, snippet_path=None, add=True):
         test_files: List of test file paths
         snippet_path: Path to snippet file (required for add)
         add: True to add snippet, False to remove
+        create_backup: Whether to create backups before modifying files
+        check_only: Only check files, don't modify them
         
     Returns:
         Tuple of (success_count, failure_count, log_messages)
@@ -247,130 +299,97 @@ def process_files(test_files, snippet_path=None, add=True):
     failure_count = 0
     log_messages = []
     
-    # Read snippet content if adding
-    snippet_content = None
-    if add and snippet_path:
+    if add and not check_only:
         try:
             snippet_content = prepare_snippet_content(snippet_path)
+            logger.info("Successfully prepared snippet content")
         except Exception as e:
-            return 0, len(test_files), [f"Error preparing snippet content: {str(e)}"]
+            logger.error(f"Failed to prepare snippet content: {e}")
+            return 0, len(test_files), [str(e)]
     
-    # Process each test file
     for file_path in test_files:
-        if add:
-            success, message = add_snippet(file_path, snippet_content)
-        else:
-            success, message = remove_snippet(file_path)
+        try:
+            if check_only:
+                # Just check if snippet is present
+                content = read_file_content(file_path)
+                has_snippet = SNIPPET_START_MARKER in content
+                msg = f"Snippet {'present in' if has_snippet else 'missing from'} {file_path}"
+                log_messages.append(msg)
+                if (add and not has_snippet) or (not add and has_snippet):
+                    success_count += 1
+                else:
+                    failure_count += 1
+            else:
+                # Actually modify the file
+                if add:
+                    success, msg = add_snippet(file_path, snippet_content, create_backup)
+                else:
+                    success, msg = remove_snippet(file_path, create_backup)
+                
+                log_messages.append(msg)
+                if success:
+                    success_count += 1
+                else:
+                    failure_count += 1
         
-        log_messages.append(message)
-        
-        if success:
-            success_count += 1
-        else:
+        except Exception as e:
+            msg = f"Error processing {file_path}: {str(e)}"
+            log_messages.append(msg)
             failure_count += 1
     
     return success_count, failure_count, log_messages
 
-def backup_file(file_path):
-    """
-    Create a backup of a file.
-    
-    Args:
-        file_path: Path to file
-        
-    Returns:
-        Path to backup file
-    """
-    backup_path = file_path.with_suffix(f"{file_path.suffix}.bak")
-    file_path.rename(backup_path)
-    return backup_path
-
 def main():
-    """Main function to execute the script."""
-    parser = argparse.ArgumentParser(
-        description='Add or remove code snippets from test files.'
-    )
-    parser.add_argument('-source', required=True, 
-                        help='Source directory containing test files')
-    parser.add_argument('-snippet', 
-                        help='Path to snippet file to add (only required for ADD without --check-only)')
-    parser.add_argument('-option', required=True, choices=['ADD', 'REMOVE'],
-                        help='Operation to perform: ADD or REMOVE')
-    parser.add_argument('--backup', action='store_true',
-                        help='Create backups of modified files')
-    parser.add_argument('--check-only', action='store_true',
-                        help='Only check for impact without modifying files')
+    """Main entry point"""
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('-source', required=True, help='Directory containing test files')
+    parser.add_argument('-snippet', help='Path to snippet file (required for ADD)')
+    parser.add_argument('-option', required=True, choices=['ADD', 'REMOVE'], help='Operation to perform')
+    parser.add_argument('--backup', action='store_true', help='Create backup files before modifying')
+    parser.add_argument('--check-only', action='store_true', help='Only check files, do not modify them')
     
     args = parser.parse_args()
     
-    # Validate inputs
     try:
+        # Validate source directory
         source_dir = validate_path(args.source)
         
-        # Only require snippet file if actually adding (not in check-only mode)
-        if args.option == 'ADD' and not args.snippet and not args.check_only:
-            parser.error("Snippet file path (-snippet) is required for ADD operation without --check-only")
-        
-        if args.option == 'ADD' and args.snippet:
+        # Validate snippet file if adding
+        if args.option == 'ADD' and not args.check_only:
+            if not args.snippet:
+                parser.error("Snippet file is required for ADD operation")
             snippet_path = validate_path(args.snippet)
-    except ValueError as e:
-        print(f"Error: {str(e)}")
-        return 1
-    
-    # Find test files
-    try:
+        else:
+            snippet_path = None
+        
+        # Find test files
         test_files = find_test_files(source_dir)
         if not test_files:
-            print(f"No test files found in {source_dir}")
-            return 0
+            logger.error("No test files found")
+            return 1
         
-        print(f"Found {len(test_files)} test files in {source_dir}")
+        # Process files
+        success_count, failure_count, messages = process_files(
+            test_files,
+            snippet_path,
+            add=(args.option == 'ADD'),
+            create_backup=args.backup,
+            check_only=args.check_only
+        )
+        
+        # Print results
+        for msg in messages:
+            logger.info(msg)
+        
+        logger.info(f"\nSummary:")
+        logger.info(f"Successful operations: {success_count}")
+        logger.info(f"Failed operations: {failure_count}")
+        
+        return 0 if failure_count == 0 else 1
+    
     except Exception as e:
-        print(f"Error finding test files: {str(e)}")
+        logger.error(f"Error: {str(e)}")
         return 1
-    
-    # Check-only mode
-    if args.check_only:
-        print("Check-only mode: No files will be modified")
-        for file_path in test_files:
-            content = read_file_content(file_path)
-            has_snippet = SNIPPET_START_MARKER in content
-            print(f"{file_path}: {'Has snippet' if has_snippet else 'No snippet'}")
-        return 0
-    
-    # Create backups if requested
-    if args.backup:
-        print("Creating backups of files...")
-        backup_files = []
-        for file_path in test_files:
-            # Create a backup with a new filename instead of renaming
-            backup_path = Path(str(file_path) + ".bak")
-            with open(file_path, 'r', encoding='utf-8') as src, open(backup_path, 'w', encoding='utf-8') as dest:
-                dest.write(src.read())
-            backup_files.append(backup_path)
-            print(f"Backup created: {backup_path}")
-    
-    # Process files
-    add_operation = args.option == 'ADD'
-    snippet_path = args.snippet if add_operation else None
-    
-    success_count, failure_count, log_messages = process_files(
-        test_files, snippet_path, add_operation
-    )
-    
-    # Print results
-    print(f"\nOperation: {args.option}")
-    print(f"Files processed: {len(test_files)}")
-    print(f"Successful: {success_count}")
-    print(f"Failed: {failure_count}")
-    
-    if failure_count > 0:
-        print("\nDetails:")
-        for msg in log_messages:
-            if "Error" in msg or "invalid" in msg:
-                print(f"  - {msg}")
-    
-    return 0 if failure_count == 0 else 1
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

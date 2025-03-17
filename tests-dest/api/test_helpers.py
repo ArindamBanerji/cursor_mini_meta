@@ -72,18 +72,7 @@ def create_controller_test(controller_func: Callable) -> Callable:
     Returns:
         A test function that takes mock services and a request
     """
-    async 
-def setup_module(module):
-    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    """Clean up after the test module"""
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
-def test_func(mock_request, mock_material_service=None, mock_monitor_service=None, **kwargs):
+    async def test_func(mock_request, mock_material_service=None, mock_monitor_service=None, **kwargs):
         # Create mocks dict
         mocks = {}
         if mock_material_service:
@@ -100,4 +89,15 @@ def test_func(mock_request, mock_material_service=None, mock_monitor_service=Non
         # Call the wrapped controller
         return await wrapped(mock_request)
     
-    return test_func 
+    return test_func
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"] 

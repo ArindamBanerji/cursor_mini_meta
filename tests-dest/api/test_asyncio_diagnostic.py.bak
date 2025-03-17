@@ -1,0 +1,72 @@
+# tests-dest/api/test_asyncio_diagnostic.py
+"""
+Diagnostic file to verify async test support.
+This is an isolated test file with minimal dependencies to check pytest-asyncio function.
+"""
+import pytest
+import sys
+import os
+import asyncio
+
+# Test to verify pytest-asyncio plugin is loaded
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
+def test_pytest_asyncio_loaded():
+    """Verify that pytest-asyncio plugin is loaded correctly."""
+    assert 'pytest_asyncio' in sys.modules, "pytest-asyncio is not loaded"
+    print("pytest-asyncio is properly loaded")
+
+# Simple async test with a direct assertion
+@pytest.mark.asyncio
+async def test_asyncio_simple_async():
+    """Basic asyncio test to verify async/await functionality."""
+    # Simple async operation
+    await asyncio.sleep(0.01)
+    assert True, "This async test should pass"
+    print("Simple async test ran successfully")
+
+# Test that creates and awaits a coroutine
+@pytest.mark.asyncio
+async def test_asyncio_with_coroutine():
+    """Test with a custom coroutine function."""
+    async def simple_coroutine():
+        await asyncio.sleep(0.01)
+        return 42
+    
+    result = await simple_coroutine()
+    assert result == 42, "Coroutine should return 42"
+    print(f"Coroutine returned {result} as expected")
+
+# Test that uses an async fixture
+@pytest.fixture
+async def async_fixture():
+    """An async fixture for testing."""
+    await asyncio.sleep(0.01)
+    return "async_fixture_value"
+
+@pytest.mark.asyncio
+async def test_with_async_fixture(async_fixture):
+    """Test using an async fixture."""
+    assert async_fixture == "async_fixture_value"
+    print(f"Async fixture value: {async_fixture}")
+
+# Simulate a FastAPI-like async function
+@pytest.mark.asyncio
+async def test_fastapi_style_handler():
+    """Test simulating a FastAPI endpoint handler."""
+    async def mock_endpoint(request=None):
+        await asyncio.sleep(0.01)
+        return {"status": "success"}
+    
+    result = await mock_endpoint()
+    assert result["status"] == "success"
+    print(f"FastAPI-style handler returned: {result}")

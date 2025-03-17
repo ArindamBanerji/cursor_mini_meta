@@ -69,18 +69,7 @@ def mock_monitor_service():
 @pytest.mark.asyncio
 @patch('services.get_material_service')
 @patch('services.get_monitor_service')
-async 
-def setup_module(module):
-    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    """Clean up after the test module"""
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
-def test_original_approach(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+async def test_original_approach(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
     """Test the original approach using patch decorators."""
     print("\n--- Testing original approach with patch decorators ---")
     start_time = time.time()
@@ -98,8 +87,15 @@ def test_original_approach(mock_get_monitor, mock_get_material, mock_request, mo
     
     # Print diagnostic information
     print(f"Original approach execution time: {time.time() - start_time:.6f} seconds")
-    print(f"Expected error occurred: {excinfo.value}")
-    print("This demonstrates why the original approach doesn't work with FastAPI dependencies.")
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
 
 @pytest.mark.asyncio
 async def test_unwrap_approach(mock_request, mock_material_service, mock_monitor_service):
