@@ -1,0 +1,24 @@
+{
+  "project_root": "C:\\Users\\baner\\CopyFolder\\IoT_thoughts\\python-projects\\kaggle_experiments\\LLM-projects\\code\\supply_chain\\mini_meta_harness",
+  "source_dirs": [
+    "services",
+    "models",
+    "controllers",
+    "utils",
+    "api"
+  ],
+  "test_dirs": [
+    "tests-dest"
+  ],
+  "test_subdirs": [
+    "api",
+    "unit",
+    "integration",
+    "services",
+    "models",
+    "monitoring"
+  ],
+  "module_mappings": {
+    "tests-dest/models": "model_tests"
+  }
+}
