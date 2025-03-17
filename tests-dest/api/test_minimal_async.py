@@ -84,7 +84,18 @@ import pytest
 import asyncio
 
 @pytest.mark.asyncio
-async def test_async_minimal():
+async 
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
+def test_async_minimal():
     """Basic async test with minimal dependencies."""
     await asyncio.sleep(0.01)
     assert True, "This async test should pass"

@@ -1,0 +1,1 @@
+import os, sys; file_path = '../services/monitor_health.py'; print(f'Fixing {file_path}'); content = open(file_path, 'r').read(); lines = content.splitlines(); for i, line in enumerate(lines): if 'from datetime import datetime  # Import datetime' in line: lines[i] = '        ' + line.lstrip(); print(f'Fixed line {i+1}'); open(file_path, 'w').write('\n'.join(lines)); print('Done')

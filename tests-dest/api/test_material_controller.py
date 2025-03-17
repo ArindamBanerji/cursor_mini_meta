@@ -153,7 +153,18 @@ def mock_monitor_service():
 # UI Controller Tests
 
 @pytest.mark.asyncio
-async def test_list_materials(mock_request, mock_material_service, mock_monitor_service):
+async 
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
+def test_list_materials(mock_request, mock_material_service, mock_monitor_service):
     """Test the list_materials controller function."""
     # Create wrapped controller with mocks
     wrapped = unwrap_dependencies(

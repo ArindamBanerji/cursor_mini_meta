@@ -7,9 +7,11 @@ This module provides system health checks and reporting.
 import logging
 import os
 import platform
+import psutil
+import socket
 import time
-from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from datetime import datetime, timedelta  # Keep this import at file level
+from typing import Dict, Any, List, Optional, Tuple
 
 # Configure logging
 logger = logging.getLogger("monitor_health")
@@ -493,4 +495,6 @@ class MonitorHealth:
         Returns:
             ISO formatted timestamp string
         """
+        from datetime import datetime  # Import datetime here to ensure it's available
         return datetime.now().isoformat()
+

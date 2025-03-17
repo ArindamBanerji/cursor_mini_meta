@@ -91,6 +91,17 @@ from services.monitor_service import MonitorService
 from services.state_manager import StateManager
 from services.monitor_errors import ErrorLog
 
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
 class TestMonitorService:
     """
     Test suite for the MonitorService class.

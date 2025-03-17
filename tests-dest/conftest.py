@@ -4,8 +4,16 @@ Shared test fixtures and configurations for all test categories.
 import pytest
 import sys
 import os
+import logging
 from datetime import datetime
 from fastapi.testclient import TestClient
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+from fastapi import Request
+
+# Configure logging for tests
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Register pytest_asyncio plugin (only at top-level conftest)
 pytest_plugins = ['pytest_asyncio']
@@ -137,3 +145,30 @@ async def async_p2p_service():
     service = get_p2p_service()
     register_service("p2p", service)
     return service
+
+@pytest.fixture
+def patched_request_client():
+    """
+    Patch Request.client to have a host attribute during tests.
+    
+    This fixture solves the issue where accessing request.client.host directly
+    in controllers causes AttributeError during tests.
+    
+    Usage:
+        def test_endpoint(patched_request_client):
+            response = client.get("/api/endpoint")
+            assert response.status_code == 200
+    """
+    # Create a mock client with host attribute
+    mock_client = MagicMock()
+    mock_client.host = "test-client"
+    
+    # Start the patcher
+    patcher = patch('fastapi.Request.client', mock_client)
+    patcher.start()
+    
+    # Yield to allow the test to run
+    yield
+    
+    # Clean up the patcher
+    patcher.stop()

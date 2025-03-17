@@ -95,6 +95,9 @@ from services.monitor_service import SystemMetrics, ErrorLog, MonitorService
 from services import get_monitor_service
 from services.state_manager import state_manager
 
+# Import our patched client
+from monitoring.test_client_host_solution import PatchedRequestClient
+
 # Configure logging for tests
 logging.basicConfig(
     level=logging.INFO,
@@ -102,8 +105,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("test_monitor_controller")
 
-# Create test client
-client = TestClient(app)
+# Create test client using our patched version
+client = PatchedRequestClient(app)
 
 # Set testing environment variable
 os.environ["PYTEST_CURRENT_TEST"] = "True"
@@ -112,6 +115,17 @@ def reset_test_state():
     """Reset the state manager for tests"""
     logger.info("Resetting state for test")
     state_manager.clear()
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
 
 class TestMonitorController:
     """

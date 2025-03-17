@@ -90,6 +90,17 @@ from controllers import BaseController
 from utils.error_utils import ValidationError, BadRequestError
 
 # Test models - renamed to avoid pytest collection warnings
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
 class RequestTestModel(BaseModel):
     name: str
     age: int = Field(gt=0)

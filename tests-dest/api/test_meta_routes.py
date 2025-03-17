@@ -85,6 +85,17 @@ import pytest
 from meta_routes import ALL_ROUTES, RouteDefinition, HttpMethod
 import re
 
+
+def setup_module(module):
+    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
+    logger.info("Setting up test module")
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    
+def teardown_module(module):
+    """Clean up after the test module"""
+    logger.info("Tearing down test module")
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        del os.environ["PYTEST_CURRENT_TEST"]
 class TestMetaRoutes:
     """
     Tests for the meta_routes module and the ALL_ROUTES registry.
