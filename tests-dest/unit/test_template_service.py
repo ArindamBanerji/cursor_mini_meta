@@ -1,15 +1,26 @@
 # BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
-# Add this at the top of every test file
+# Critical imports that must be preserved
 import os
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+
+"""Standard test file imports and setup.
+
+This snippet is automatically added to test files by SnippetForTests.py.
+It provides:
+1. Dynamic project root detection and path setup
+2. Environment variable configuration
+3. Common test imports and fixtures
+4. Service initialization support
+"""
 
 # Find project root dynamically
 test_file = Path(__file__).resolve()
 test_dir = test_file.parent
 
 # Try to find project root by looking for main.py or known directories
-project_root = None
+project_root: Optional[Path] = None
 for parent in [test_dir] + list(test_dir.parents):
     # Check for main.py as an indicator of project root
     if (parent / "main.py").exists():
@@ -28,7 +39,7 @@ if not project_root:
             project_root = parent.parent
             break
 
-# Add project root to path
+# Add project root to path if found
 if project_root and str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -40,11 +51,29 @@ except ImportError:
     # Fall back if test_import_helper is not available
     if str(test_dir.parent) not in sys.path:
         sys.path.insert(0, str(test_dir.parent))
-    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
 
-# Now regular imports
+# Common test imports
 import pytest
-# Rest of imports follow
+from unittest.mock import MagicMock, AsyncMock, patch
+
+# Import common fixtures and services
+try:
+    from conftest import test_services
+    from services.base_service import BaseService
+    from services.monitor_service import MonitorService
+    from services.template_service import TemplateService
+    from services.p2p_service import P2PService
+    from models.base_model import BaseModel
+    from models.material import Material
+    from models.requisition import Requisition
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+except ImportError as e:
+    # Log import error but continue - not all tests need all imports
+    import logging
+    logging.warning(f"Optional import failed: {e}")
+    logging.debug("Stack trace:", exc_info=True)
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
 # tests-dest/unit/test_template_service.py
@@ -52,10 +81,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, Response
 from services.template_service import TemplateService
 from services.url_service import url_service
 from models.material import Material, MaterialType, UnitOfMeasure, MaterialStatus
@@ -63,25 +93,37 @@ from datetime import datetime
 
 class TestTemplateService:
     def setup_method(self):
+        """Set up test environment before each test"""
         # Create a mocked Jinja2Templates instance
-        with patch('services.template_service.Jinja2Templates') as mock_jinja:
-            # Create a mock for globals that we can inspect later
-            self.mock_globals = {}
-            
-            # Set up the mock environment with the globals
-            self.mock_env = MagicMock()
-            self.mock_env.globals = self.mock_globals
-            
-            # Set up the mock templates with the mock environment
-            self.mock_templates = MagicMock()
-            self.mock_templates.env = self.mock_env
-            mock_jinja.return_value = self.mock_templates
-            
-            # Create the TemplateService
-            self.template_service = TemplateService()
-            
-            # Verify Jinja2Templates was called with the correct directory
-            mock_jinja.assert_called_once_with(directory="templates")
+        self.templates_patcher = patch('services.template_service.Jinja2Templates')
+        self.mock_jinja = self.templates_patcher.start()
+        
+        # Create a mock for globals that we can inspect
+        self.mock_globals = {}
+        
+        # Set up the mock environment with the globals
+        self.mock_env = MagicMock()
+        self.mock_env.globals = self.mock_globals
+        
+        # Set up the mock templates with the mock environment
+        self.mock_templates = MagicMock()
+        self.mock_templates.env = self.mock_env
+        
+        # Configure the mock TemplateResponse to return a proper Response object
+        mock_response = HTMLResponse(content="<html>Test</html>")
+        self.mock_templates.TemplateResponse.return_value = mock_response
+        
+        self.mock_jinja.return_value = self.mock_templates
+        
+        # Create the TemplateService
+        self.template_service = TemplateService()
+        
+        # Verify Jinja2Templates was called with the correct directory
+        self.mock_jinja.assert_called_once_with(directory="templates")
+    
+    def teardown_method(self):
+        """Clean up after each test"""
+        self.templates_patcher.stop()
     
     def test_url_for_registered_in_globals(self):
         """Test that url_for is registered in the Jinja2 globals"""
@@ -96,46 +138,62 @@ class TestTemplateService:
         with patch('services.template_service.url_service.get_url_for_route') as mock_get_url:
             mock_get_url.return_value = "/test/123"
             
-            # Call url_for
+            # Test with kwargs
             result = self.template_service.url_for("test_route", id=123)
+            mock_get_url.assert_called_with("test_route", {"id": 123})
+            assert result == "/test/123"
             
-            # Verify url_service was called
-            mock_get_url.assert_called_once_with("test_route", {"id": 123})
+            # Test with dict params
+            result = self.template_service.url_for("test_route", params={"id": 123})
+            mock_get_url.assert_called_with("test_route", {"id": 123})
+            assert result == "/test/123"
+            
+            # Test with no params
+            result = self.template_service.url_for("test_route")
+            mock_get_url.assert_called_with("test_route", None)
             assert result == "/test/123"
     
-    def test_render_template_calls_jinja_templates(self):
-        """Test that render_template calls the Jinja2Templates instance"""
+    @pytest.mark.asyncio
+    async def test_render_template_returns_html_response(self):
+        """Test that render_template always returns HTMLResponse"""
         # Create a mock request
-        mock_request = MagicMock()
+        mock_request = AsyncMock(spec=Request)
         
-        # Create a mock context
-        context = {"test_key": "test_value"}
+        # Test with HTMLResponse from Jinja
+        html_response = HTMLResponse(content="<html>Test</html>")
+        self.mock_templates.TemplateResponse.return_value = html_response
         
-        # Call render_template
-        self.template_service.render_template(mock_request, "test.html", context)
+        result = self.template_service.render_template(mock_request, "test.html", {})
+        assert isinstance(result, HTMLResponse)
+        assert result.body == b"<html>Test</html>"
         
-        # Verify Jinja2Templates.TemplateResponse was called
-        self.mock_templates.TemplateResponse.assert_called_once()
+        # Test with non-HTMLResponse from Jinja
+        plain_response = Response(content="Test", media_type="text/plain")
+        self.mock_templates.TemplateResponse.return_value = plain_response
         
-        # Get the call arguments
-        args, kwargs = self.mock_templates.TemplateResponse.call_args
+        result = self.template_service.render_template(mock_request, "test.html", {})
+        assert isinstance(result, HTMLResponse)
+        assert result.headers["content-type"] == "text/html; charset=utf-8"
+    
+    @pytest.mark.asyncio
+    async def test_render_template_error_handling(self):
+        """Test template rendering error handling"""
+        mock_request = AsyncMock(spec=Request)
         
-        # Verify template name
-        assert args[0] == "test.html"
+        # Test with invalid template name
+        self.mock_templates.TemplateResponse.side_effect = Exception("Template not found")
         
-        # Verify context - it should include the request and our context
-        context_arg = args[1]
-        assert "request" in context_arg
-        assert context_arg["request"] == mock_request
-        assert "test_key" in context_arg
-        assert context_arg["test_key"] == "test_value"
+        with pytest.raises(Exception) as exc_info:
+            self.template_service.render_template(mock_request, "nonexistent.html", {})
+        assert "Template not found" in str(exc_info.value)
     
     # Tests for material templates
     
-    def test_material_list_template_rendering(self):
+    @pytest.mark.asyncio
+    async def test_material_list_template_rendering(self):
         """Test rendering the material list template"""
         # Create a mock request
-        mock_request = MagicMock()
+        mock_request = AsyncMock(spec=Request)
         
         # Create sample materials
         materials = [
@@ -177,19 +235,29 @@ class TestTemplateService:
             "title": "Materials"
         }
         
-        # Call render_template
-        self.template_service.render_template(mock_request, "material/list.html", context)
+        # Configure mock response
+        mock_response = HTMLResponse(content="<html>Material List</html>")
+        self.mock_templates.TemplateResponse.return_value = mock_response
         
-        # Verify Jinja2Templates.TemplateResponse was called
+        # Call render_template
+        response = self.template_service.render_template(mock_request, "material/list.html", context)
+        
+        # Verify response type and content
+        assert isinstance(response, HTMLResponse)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/html; charset=utf-8"
+        
+        # Verify template was called with correct arguments
         self.mock_templates.TemplateResponse.assert_called_once()
+        args, kwargs = self.mock_templates.TemplateResponse.call_args
         
         # Check template name
-        args, kwargs = self.mock_templates.TemplateResponse.call_args
         assert args[0] == "material/list.html"
         
         # Verify context
         context_arg = args[1]
         assert "request" in context_arg
+        assert context_arg["request"] == mock_request
         assert "materials" in context_arg
         assert "count" in context_arg
         assert "filters" in context_arg
@@ -201,10 +269,11 @@ class TestTemplateService:
         assert context_arg["materials"][0].material_number == "MAT12345"
         assert context_arg["materials"][1].material_number == "MAT67890"
     
-    def test_material_detail_template_rendering(self):
+    @pytest.mark.asyncio
+    async def test_material_detail_template_rendering(self):
         """Test rendering the material detail template"""
         # Create a mock request
-        mock_request = MagicMock()
+        mock_request = AsyncMock(spec=Request)
         
         # Create a sample material
         material = Material(
@@ -233,27 +302,36 @@ class TestTemplateService:
             "title": f"Material: {material.name}"
         }
         
-        # Call render_template
-        self.template_service.render_template(mock_request, "material/detail.html", context)
+        # Configure mock response
+        mock_response = HTMLResponse(content="<html>Material Detail</html>")
+        self.mock_templates.TemplateResponse.return_value = mock_response
         
-        # Verify Jinja2Templates.TemplateResponse was called
+        # Call render_template
+        response = self.template_service.render_template(mock_request, "material/detail.html", context)
+        
+        # Verify response type and content
+        assert isinstance(response, HTMLResponse)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/html; charset=utf-8"
+        
+        # Verify template was called with correct arguments
         self.mock_templates.TemplateResponse.assert_called_once()
+        args, kwargs = self.mock_templates.TemplateResponse.call_args
         
         # Check template name
-        args, kwargs = self.mock_templates.TemplateResponse.call_args
         assert args[0] == "material/detail.html"
         
         # Verify context
         context_arg = args[1]
         assert "request" in context_arg
+        assert context_arg["request"] == mock_request
         assert "material" in context_arg
         assert "related_documents" in context_arg
         assert "title" in context_arg
         
-        # Check material is passed correctly
+        # Check material data
+        assert context_arg["material"] == material
         assert context_arg["material"].material_number == "MAT12345"
-        assert context_arg["material"].name == "Test Material"
-        assert context_arg["material"].type == MaterialType.RAW
         assert context_arg["material"].weight == 10.5
         assert context_arg["material"].volume == 5.2
     

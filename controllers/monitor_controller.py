@@ -20,6 +20,23 @@ from services import get_monitor_service
 # Configure logging
 logger = logging.getLogger("monitor_controller")
 
+def get_safe_client_host(request: Request) -> str:
+    """
+    Safely get the client host from a request.
+    
+    Args:
+        request: FastAPI request
+        
+    Returns:
+        Client host string or 'unknown' if not available
+    """
+    try:
+        if hasattr(request, 'client') and request.client and hasattr(request.client, 'host'):
+            return request.client.host
+        return 'unknown'
+    except Exception:
+        return 'unknown'
+
 # Pydantic models for request validation
 
 class MetricsQueryParams(BaseModel):
@@ -45,7 +62,7 @@ async def api_health_check(request: Request) -> JSONResponse:
     Returns:
         JSON response with health check results
     """
-    logger.info(f"Health check requested from {request.client.host if hasattr(request, 'client') else 'unknown'}")
+    logger.info(f"Health check requested from {get_safe_client_host(request)}")
     monitor_service = get_monitor_service()
     
     try:
@@ -104,7 +121,7 @@ async def api_get_metrics(request: Request) -> JSONResponse:
     Returns:
         JSON response with metrics data
     """
-    logger.info(f"Metrics requested from {request.client.host if hasattr(request, 'client') else 'unknown'}")
+    logger.info(f"Metrics requested from {get_safe_client_host(request)}")
     monitor_service = get_monitor_service()
     
     try:
@@ -151,7 +168,7 @@ async def api_get_errors(request: Request) -> JSONResponse:
     Returns:
         JSON response with error logs
     """
-    logger.info(f"Error logs requested from {request.client.host if hasattr(request, 'client') else 'unknown'}")
+    logger.info(f"Error logs requested from {get_safe_client_host(request)}")
     monitor_service = get_monitor_service()
     
     try:
@@ -224,7 +241,7 @@ async def api_collect_metrics(request: Request) -> JSONResponse:
     Returns:
         JSON response with collected metrics
     """
-    logger.info(f"Metrics collection requested from {request.client.host if hasattr(request, 'client') else 'unknown'}")
+    logger.info(f"Metrics collection requested from {get_safe_client_host(request)}")
     monitor_service = get_monitor_service()
     
     try:

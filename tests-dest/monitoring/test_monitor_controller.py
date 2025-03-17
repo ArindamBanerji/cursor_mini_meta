@@ -1,15 +1,26 @@
 # BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
-# Add this at the top of every test file
+# Critical imports that must be preserved
 import os
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+
+"""Standard test file imports and setup.
+
+This snippet is automatically added to test files by SnippetForTests.py.
+It provides:
+1. Dynamic project root detection and path setup
+2. Environment variable configuration
+3. Common test imports and fixtures
+4. Service initialization support
+"""
 
 # Find project root dynamically
 test_file = Path(__file__).resolve()
 test_dir = test_file.parent
 
 # Try to find project root by looking for main.py or known directories
-project_root = None
+project_root: Optional[Path] = None
 for parent in [test_dir] + list(test_dir.parents):
     # Check for main.py as an indicator of project root
     if (parent / "main.py").exists():
@@ -28,7 +39,7 @@ if not project_root:
             project_root = parent.parent
             break
 
-# Add project root to path
+# Add project root to path if found
 if project_root and str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -40,11 +51,29 @@ except ImportError:
     # Fall back if test_import_helper is not available
     if str(test_dir.parent) not in sys.path:
         sys.path.insert(0, str(test_dir.parent))
-    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
 
-# Now regular imports
+# Common test imports
 import pytest
-# Rest of imports follow
+from unittest.mock import MagicMock, AsyncMock, patch
+
+# Import common fixtures and services
+try:
+    from conftest import test_services
+    from services.base_service import BaseService
+    from services.monitor_service import MonitorService
+    from services.template_service import TemplateService
+    from services.p2p_service import P2PService
+    from models.base_model import BaseModel
+    from models.material import Material
+    from models.requisition import Requisition
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+except ImportError as e:
+    # Log import error but continue - not all tests need all imports
+    import logging
+    logging.warning(f"Optional import failed: {e}")
+    logging.debug("Stack trace:", exc_info=True)
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
 # tests-dest/monitoring/test_monitor_controller.py
@@ -275,53 +304,60 @@ class TestMonitorController:
         """Test get metrics with some data available"""
         logger.info("Testing get metrics with data")
         
-        # Create some test metrics
+        # Create test metrics
         monitor_service = get_monitor_service()
         
-        metrics1 = SystemMetrics()
-        metrics1.cpu_percent = 10.5
-        metrics1.memory_usage = 45.2
-        metrics1.available_memory = 4.2
-        metrics1.disk_usage = 65.8
-        
-        metrics2 = SystemMetrics()
-        metrics2.cpu_percent = 15.3
-        metrics2.memory_usage = 52.1
-        metrics2.available_memory = 3.8
-        metrics2.disk_usage = 66.4
-        
-        # Store metrics
-        monitor_service._store_metrics(metrics1)
-        monitor_service._store_metrics(metrics2)
-        
-        # Verify metrics were stored
-        stored_metrics = state_manager.get("system_metrics", [])
-        logger.info(f"Stored {len(stored_metrics)} metrics")
-        
-        # Make request
-        response = client.get("/api/v1/monitor/metrics")
-        
-        # Log response for debugging
-        logger.info(f"Get metrics with data response: {json.dumps(response.json(), indent=2)}")
-        
-        # Verify response
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Verify structure and content
-        assert data["success"] is True
-        assert data["data"]["count"] == 2
-        assert "averages" in data["data"]
-        assert "maximums" in data["data"]
-        assert "time_range" in data["data"]
-        
-        # Check averages
-        assert abs(data["data"]["averages"]["cpu_percent"] - 12.9) < 0.1
-        assert abs(data["data"]["averages"]["memory_usage_percent"] - 48.65) < 0.1
-        
-        # Check maximums
-        assert abs(data["data"]["maximums"]["cpu_percent"] - 15.3) < 0.1
-        assert abs(data["data"]["maximums"]["memory_usage_percent"] - 52.1) < 0.1
+        # Mock collect_current_metrics to return our test data
+        with patch.object(monitor_service.metrics, 'collect_current_metrics') as mock_collect:
+            # First metrics
+            metrics1 = SystemMetrics()
+            metrics1.cpu_percent = 10.5
+            metrics1.memory_usage = 45.2
+            metrics1.available_memory = 4.2
+            metrics1.disk_usage = 65.8
+            
+            # Second metrics
+            metrics2 = SystemMetrics()
+            metrics2.cpu_percent = 15.3
+            metrics2.memory_usage = 52.1
+            metrics2.available_memory = 3.8
+            metrics2.disk_usage = 66.4
+            
+            # Configure mock to return our metrics in sequence
+            mock_collect.side_effect = [metrics1, metrics2]
+            
+            # Collect metrics twice using the public interface
+            monitor_service.collect_current_metrics()
+            monitor_service.collect_current_metrics()
+            
+            # Verify metrics were stored
+            stored_metrics = state_manager.get("system_metrics", [])
+            logger.info(f"Stored {len(stored_metrics)} metrics")
+            
+            # Make request
+            response = client.get("/api/v1/monitor/metrics")
+            
+            # Log response for debugging
+            logger.info(f"Get metrics with data response: {json.dumps(response.json(), indent=2)}")
+            
+            # Verify response
+            assert response.status_code == 200
+            data = response.json()
+            
+            # Verify structure and content
+            assert data["success"] is True
+            assert data["data"]["count"] == 2
+            assert "averages" in data["data"]
+            assert "maximums" in data["data"]
+            assert "time_range" in data["data"]
+            
+            # Check averages
+            assert abs(data["data"]["averages"]["cpu_percent"] - 12.9) < 0.1
+            assert abs(data["data"]["averages"]["memory_usage_percent"] - 48.65) < 0.1
+            
+            # Check maximums
+            assert abs(data["data"]["maximums"]["cpu_percent"] - 15.3) < 0.1
+            assert abs(data["data"]["maximums"]["memory_usage_percent"] - 52.1) < 0.1
     
     def test_get_metrics_with_time_filter(self):
         """Test get metrics with time filter parameter"""
@@ -330,32 +366,47 @@ class TestMonitorController:
         # Create metrics at different times
         monitor_service = get_monitor_service()
         
-        # Create old metrics (3 hours ago)
-        old_metrics = SystemMetrics()
-        old_metrics.timestamp = datetime.now() - timedelta(hours=3)
-        old_metrics.cpu_percent = 20.0
-        
-        # Create recent metrics
-        recent_metrics = SystemMetrics()
-        recent_metrics.cpu_percent = 10.0
-        
-        # Store both
-        monitor_service._store_metrics(old_metrics)
-        monitor_service._store_metrics(recent_metrics)
-        
-        # Make request with 1 hour filter
-        response = client.get("/api/v1/monitor/metrics?hours=1")
-        
-        # Log response for debugging
-        logger.info(f"Get metrics with time filter response: {json.dumps(response.json(), indent=2)}")
-        
-        # Verify response only includes recent metrics
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["success"] is True
-        assert data["data"]["count"] == 1
-        assert abs(data["data"]["averages"]["cpu_percent"] - 10.0) < 0.1
+        # Mock collect_current_metrics and datetime.now
+        with patch.object(monitor_service.metrics, 'collect_current_metrics') as mock_collect, \
+             patch('services.monitor_metrics.datetime') as mock_datetime:
+            # Set up our mock datetime
+            current_time = datetime.now()
+            mock_datetime.now.return_value = current_time
+            
+            # Create old metrics (3 hours ago)
+            old_metrics = SystemMetrics()
+            old_metrics.timestamp = current_time - timedelta(hours=3)
+            old_metrics.cpu_percent = 20.0
+            
+            # Create recent metrics
+            recent_metrics = SystemMetrics()
+            recent_metrics.cpu_percent = 10.0
+            recent_metrics.timestamp = current_time
+            
+            # Configure mock to return our metrics in sequence
+            mock_collect.side_effect = [old_metrics, recent_metrics]
+            
+            # First collection (old metrics)
+            mock_datetime.now.return_value = current_time - timedelta(hours=3)
+            monitor_service.collect_current_metrics()
+            
+            # Second collection (recent metrics)
+            mock_datetime.now.return_value = current_time
+            monitor_service.collect_current_metrics()
+            
+            # Make request with 1 hour filter
+            response = client.get("/api/v1/monitor/metrics?hours=1")
+            
+            # Log response for debugging
+            logger.info(f"Get metrics with time filter response: {json.dumps(response.json(), indent=2)}")
+            
+            # Verify response only includes recent metrics
+            assert response.status_code == 200
+            data = response.json()
+            
+            assert data["success"] is True
+            assert data["data"]["count"] == 1
+            assert abs(data["data"]["averages"]["cpu_percent"] - 10.0) < 0.1
     
     def test_collect_metrics_endpoint(self):
         """Test metrics collection endpoint"""
@@ -524,21 +575,19 @@ class TestMonitorController:
         monitor_service = get_monitor_service()
         
         # Create an old error log
-        old_error = ErrorLog(
+        old_error = monitor_service.log_error(
             error_type="old_error",
             message="Old error message",
-            timestamp=datetime.now() - timedelta(hours=5),
-            component="test_component"
+            component="test_component",
+            context={"timestamp": (datetime.now() - timedelta(hours=5)).isoformat()}
         )
-        monitor_service._store_error_log(old_error)
         
         # Create a recent error log
-        recent_error = ErrorLog(
+        recent_error = monitor_service.log_error(
             error_type="recent_error",
             message="Recent error message",
             component="test_component"
         )
-        monitor_service._store_error_log(recent_error)
         
         # Make request with 1 hour filter
         response = client.get("/api/v1/monitor/errors?hours=1")

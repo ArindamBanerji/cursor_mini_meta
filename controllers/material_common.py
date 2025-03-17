@@ -97,14 +97,15 @@ def handle_material_not_found(material_id: str, request: Request) -> RedirectRes
         request: FastAPI request
         
     Returns:
-        Redirect response to materials list
+        Redirect response to materials list with 302 Found status
     """
     logger.warning(f"Material {material_id} not found, redirecting to list")
     
     # Return a redirect to the materials list with error message
     return BaseController.redirect_to_route(
         route_name="material_list",
-        query_params={"error": f"Material {material_id} not found"}
+        query_params={"error": f"Material {material_id} not found"},
+        status_code=302  # Use 302 Found for GET redirects
     )
 
 def log_controller_error(monitor_service, e: Exception, request: Request, component: str, material_id: Optional[str] = None) -> None:

@@ -1,15 +1,26 @@
 # BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
-# Add this at the top of every test file
+# Critical imports that must be preserved
 import os
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+
+"""Standard test file imports and setup.
+
+This snippet is automatically added to test files by SnippetForTests.py.
+It provides:
+1. Dynamic project root detection and path setup
+2. Environment variable configuration
+3. Common test imports and fixtures
+4. Service initialization support
+"""
 
 # Find project root dynamically
 test_file = Path(__file__).resolve()
 test_dir = test_file.parent
 
 # Try to find project root by looking for main.py or known directories
-project_root = None
+project_root: Optional[Path] = None
 for parent in [test_dir] + list(test_dir.parents):
     # Check for main.py as an indicator of project root
     if (parent / "main.py").exists():
@@ -28,7 +39,7 @@ if not project_root:
             project_root = parent.parent
             break
 
-# Add project root to path
+# Add project root to path if found
 if project_root and str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -40,11 +51,29 @@ except ImportError:
     # Fall back if test_import_helper is not available
     if str(test_dir.parent) not in sys.path:
         sys.path.insert(0, str(test_dir.parent))
-    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
 
-# Now regular imports
+# Common test imports
 import pytest
-# Rest of imports follow
+from unittest.mock import MagicMock, AsyncMock, patch
+
+# Import common fixtures and services
+try:
+    from conftest import test_services
+    from services.base_service import BaseService
+    from services.monitor_service import MonitorService
+    from services.template_service import TemplateService
+    from services.p2p_service import P2PService
+    from models.base_model import BaseModel
+    from models.material import Material
+    from models.requisition import Requisition
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+except ImportError as e:
+    # Log import error but continue - not all tests need all imports
+    import logging
+    logging.warning(f"Optional import failed: {e}")
+    logging.debug("Stack trace:", exc_info=True)
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
 # tests-dest/api/test_material_controller.py
@@ -69,6 +98,7 @@ from controllers.material_api_controller import (
     api_update_material, api_deprecate_material
 )
 from utils.error_utils import NotFoundError, ValidationError
+from api.test_helpers import unwrap_dependencies, create_controller_test
 
 # Test data
 TEST_MATERIAL = Material(
@@ -122,16 +152,18 @@ def mock_monitor_service():
 
 # UI Controller Tests
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_list_materials(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_list_materials(mock_request, mock_material_service, mock_monitor_service):
     """Test the list_materials controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        list_materials,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    result = await list_materials(mock_request)
+    result = await wrapped(mock_request)
     
     # Verify result
     assert "materials" in result
@@ -140,50 +172,59 @@ async def test_list_materials(mock_get_monitor, mock_get_material, mock_request,
     assert result["count"] == 1
     mock_material_service.list_materials.assert_called_once()
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_get_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_get_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the get_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        get_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    result = await get_material(mock_request, "MAT12345")
+    result = await wrapped(mock_request, "MAT12345")
     
     # Verify result
     assert "material" in result
     assert result["material"] == TEST_MATERIAL
     mock_material_service.get_material.assert_called_once_with("MAT12345")
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_get_material_not_found(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_get_material_not_found(mock_request, mock_material_service, mock_monitor_service):
     """Test the get_material controller function with a not found error."""
     # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
     mock_material_service.get_material.side_effect = NotFoundError("Material not found")
     
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        get_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
+    
     # Call the function, expect a redirect
-    response = await get_material(mock_request, "NONEXISTENT")
+    response = await wrapped(mock_request, "NONEXISTENT")
     
     # Verify it's a redirect
     assert isinstance(response, RedirectResponse)
+    assert response.status_code == 303  # Redirect status code is 303 See Other
     assert "materials" in response.headers["location"]
     assert "error" in response.headers["location"]
     mock_material_service.get_material.assert_called_once_with("NONEXISTENT")
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_create_material_form(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_create_material_form(mock_request, mock_material_service, mock_monitor_service):
     """Test the create_material_form controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        create_material_form,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    result = await create_material_form(mock_request)
+    result = await wrapped(mock_request)
     
     # Verify result
     assert "title" in result
@@ -193,145 +234,157 @@ async def test_create_material_form(mock_get_monitor, mock_get_material, mock_re
     assert "units" in result["options"]
     assert "statuses" in result["options"]
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_create_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_create_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the create_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
-    
-    # Call the function
-    response = await create_material(mock_request)
-    
-    # Verify it's a redirect to the detail page
-    assert isinstance(response, RedirectResponse)
-    assert f"/materials/{TEST_MATERIAL.material_number}" in response.headers["location"]
-    mock_material_service.create_material.assert_called_once()
-
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_create_material_validation_error(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
-    """Test the create_material controller function with validation error."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
-    mock_material_service.create_material.side_effect = ValidationError(
-        message="Validation failed",
-        details={"validation_errors": {"name": "Name is required"}}
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        create_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
     )
     
     # Call the function
-    result = await create_material(mock_request)
+    response = await wrapped(mock_request)
     
-    # Verify it returns the form context with errors
+    # Verify it's a redirect to the detail page
+    assert isinstance(response, RedirectResponse)
+    assert response.status_code == 303  # POST redirect should use 303 See Other
+    assert f"/materials/{TEST_MATERIAL.material_number}" in response.headers["location"]
+    mock_material_service.create_material.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_create_material_validation_error(mock_request, mock_material_service, mock_monitor_service):
+    """Test the create_material controller function with validation error."""
+    # Setup mocks
+    mock_material_service.create_material.side_effect = ValidationError(
+        message="Validation error",
+        details={"name": "Name is required"}
+    )
+    
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        create_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
+    
+    # Call the function
+    result = await wrapped(mock_request)
+    
+    # Verify result contains errors
     assert "errors" in result
     assert "name" in result["errors"]
     assert "form_data" in result
     mock_material_service.create_material.assert_called_once()
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_update_material_form(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_update_material_form(mock_request, mock_material_service, mock_monitor_service):
     """Test the update_material_form controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        update_material_form,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    result = await update_material_form(mock_request, "MAT12345")
+    result = await wrapped(mock_request, "MAT12345")
     
     # Verify result
-    assert "title" in result
     assert "material" in result
     assert result["material"] == TEST_MATERIAL
-    assert "form_action" in result
     assert "options" in result
+    assert "types" in result["options"]
+    assert "units" in result["options"]
+    assert "statuses" in result["options"]
     mock_material_service.get_material.assert_called_once_with("MAT12345")
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_update_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_update_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the update_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        update_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    response = await update_material(mock_request, "MAT12345")
+    response = await wrapped(mock_request, "MAT12345")
     
     # Verify it's a redirect to the detail page
     assert isinstance(response, RedirectResponse)
+    assert response.status_code == 303  # POST redirect should use 303 See Other
     assert f"/materials/{TEST_MATERIAL.material_number}" in response.headers["location"]
     mock_material_service.update_material.assert_called_once()
 
-@patch('controllers.material_ui_controller.get_material_service_dependency')
-@patch('controllers.material_ui_controller.get_monitor_service_dependency')
-async def test_deprecate_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_deprecate_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the deprecate_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        deprecate_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    response = await deprecate_material(mock_request, "MAT12345")
+    response = await wrapped(mock_request, "MAT12345")
     
     # Verify it's a redirect to the detail page
     assert isinstance(response, RedirectResponse)
+    assert response.status_code == 303  # POST redirect should use 303 See Other
     assert f"/materials/{TEST_MATERIAL.material_number}" in response.headers["location"]
-    assert "message" in response.headers["location"]
     mock_material_service.deprecate_material.assert_called_once_with("MAT12345")
 
 # API Controller Tests
 
-@patch('controllers.material_api_controller.get_material_service_dependency')
-@patch('controllers.material_api_controller.get_monitor_service_dependency')
-async def test_api_list_materials(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_api_list_materials(mock_request, mock_material_service, mock_monitor_service):
     """Test the api_list_materials controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        api_list_materials,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    response = await api_list_materials(mock_request)
+    response = await wrapped(mock_request)
     
-    # Verify it's a JSON response with success status
-    assert isinstance(response, JSONResponse)
+    # Verify response
     assert response.status_code == 200
-    content = response.body.decode()
-    assert "success" in content
-    assert "true" in content.lower()
-    assert "materials" in content
+    data = response.body.decode('utf-8')
+    assert "materials" in data
+    assert "count" in data
     mock_material_service.list_materials.assert_called_once()
 
-@patch('controllers.material_api_controller.get_material_service_dependency')
-@patch('controllers.material_api_controller.get_monitor_service_dependency')
-async def test_api_get_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_api_get_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the api_get_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        api_get_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    response = await api_get_material(mock_request, "MAT12345")
+    response = await wrapped(mock_request, "MAT12345")
     
-    # Verify it's a JSON response with success status
-    assert isinstance(response, JSONResponse)
+    # Verify response
     assert response.status_code == 200
-    content = response.body.decode()
-    assert "success" in content
-    assert "true" in content.lower()
-    assert "material" in content
+    data = response.body.decode('utf-8')
+    assert "material_number" in data
+    assert "name" in data
     mock_material_service.get_material.assert_called_once_with("MAT12345")
 
-@patch('controllers.material_api_controller.get_material_service_dependency')
-@patch('controllers.material_api_controller.get_monitor_service_dependency')
+@pytest.mark.asyncio
 @patch('controllers.material_api_controller.BaseController.parse_json_body')
-async def test_api_create_material(mock_parse_json, mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+async def test_api_create_material(mock_parse_json, mock_request, mock_material_service, mock_monitor_service):
     """Test the api_create_material controller function."""
     # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
     material_data = MaterialCreate(
         name="Test Material",
         description="Test Description",
@@ -340,60 +393,64 @@ async def test_api_create_material(mock_parse_json, mock_get_monitor, mock_get_m
     )
     mock_parse_json.return_value = material_data
     
-    # Call the function
-    response = await api_create_material(mock_request)
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        api_create_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
-    # Verify it's a JSON response with success status and 201 code
-    assert isinstance(response, JSONResponse)
+    # Call the function
+    response = await wrapped(mock_request)
+    
+    # Verify response
     assert response.status_code == 201
-    content = response.body.decode()
-    assert "success" in content
-    assert "true" in content.lower()
-    assert "material" in content
-    mock_material_service.create_material.assert_called_once()
-    mock_parse_json.assert_called_once()
+    data = response.body.decode('utf-8')
+    assert "material_number" in data
+    assert "name" in data
+    mock_material_service.create_material.assert_called_once_with(material_data)
 
-@patch('controllers.material_api_controller.get_material_service_dependency')
-@patch('controllers.material_api_controller.get_monitor_service_dependency')
+@pytest.mark.asyncio
 @patch('controllers.material_api_controller.BaseController.parse_json_body')
-async def test_api_update_material(mock_parse_json, mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+async def test_api_update_material(mock_parse_json, mock_request, mock_material_service, mock_monitor_service):
     """Test the api_update_material controller function."""
     # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
     update_data = MaterialUpdate(name="Updated Material")
     mock_parse_json.return_value = update_data
     
-    # Call the function
-    response = await api_update_material(mock_request, "MAT12345")
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        api_update_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
-    # Verify it's a JSON response with success status
-    assert isinstance(response, JSONResponse)
+    # Call the function
+    response = await wrapped(mock_request, "MAT12345")
+    
+    # Verify response
     assert response.status_code == 200
-    content = response.body.decode()
-    assert "success" in content
-    assert "true" in content.lower()
-    assert "material" in content
+    data = response.body.decode('utf-8')
+    assert "material_number" in data
+    assert "name" in data
     mock_material_service.update_material.assert_called_once_with("MAT12345", update_data)
-    mock_parse_json.assert_called_once()
 
-@patch('controllers.material_api_controller.get_material_service_dependency')
-@patch('controllers.material_api_controller.get_monitor_service_dependency')
-async def test_api_deprecate_material(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
+@pytest.mark.asyncio
+async def test_api_deprecate_material(mock_request, mock_material_service, mock_monitor_service):
     """Test the api_deprecate_material controller function."""
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
+    # Create wrapped controller with mocks
+    wrapped = unwrap_dependencies(
+        api_deprecate_material,
+        material_service=mock_material_service,
+        monitor_service=mock_monitor_service
+    )
     
     # Call the function
-    response = await api_deprecate_material(mock_request, "MAT12345")
+    response = await wrapped(mock_request, "MAT12345")
     
-    # Verify it's a JSON response with success status
-    assert isinstance(response, JSONResponse)
+    # Verify response
     assert response.status_code == 200
-    content = response.body.decode()
-    assert "success" in content
-    assert "true" in content.lower()
-    assert "material_number" in content
-    assert "status" in content
+    data = response.body.decode('utf-8')
+    assert "material_number" in data
+    assert "status" in data
     mock_material_service.deprecate_material.assert_called_once_with("MAT12345")

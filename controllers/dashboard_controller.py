@@ -32,6 +32,12 @@ async def show_dashboard(request: Request) -> Dict[str, Any]:
 async def redirect_to_dashboard(request: Request) -> RedirectResponse:
     """
     Redirects from root '/' to '/dashboard'
+    
+    This is a GET redirect, so we use 302 Found status code
+    to indicate a temporary redirect without method change.
     """
-    # Use BaseController's redirect method
-    return BaseController.redirect_to_route("dashboard")
+    # Use BaseController's redirect method with 302 Found for GET redirect
+    return BaseController.redirect_to_route(
+        "dashboard",
+        status_code=302  # Use 302 Found for GET redirects
+    )
