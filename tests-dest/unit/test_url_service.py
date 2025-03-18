@@ -122,8 +122,14 @@ from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 from meta_routes import RouteDefinition, HttpMethod, ALL_ROUTES
 from services.url_service import URLService
-from models.base_model import BaseModel
+from pydantic import BaseModel
 from utils.error_utils import ValidationError
+
+# Define a test model since models.base_model can't be imported
+class TestModel(BaseModel):
+    id: str
+    name: str
+    value: int = 0
 
 # Create test routes for isolated testing
 TEST_ROUTES = [

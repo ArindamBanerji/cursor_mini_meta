@@ -108,8 +108,12 @@ def setup_test_env(monkeypatch):
     """Set up test environment for each test."""
     setup_test_env_vars(monkeypatch)
     logger.info("Test environment initialized")
+    # Set environment variable for pytest if it doesn't exist
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "True")
     yield
     logger.info("Test environment cleaned up")
+    # Don't try to remove PYTEST_CURRENT_TEST, let pytest handle it
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
 # tests-dest/unit/test_base_controller.py
@@ -126,16 +130,6 @@ from controllers import BaseController
 from utils.error_utils import ValidationError, BadRequestError
 
 # Test models - renamed to avoid pytest collection warnings
-
-@pytest.fixture(autouse=True)
-def setup_test_env():
-    """Set up test environment for each test."""
-    logger.info("Setting up test environment")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    yield
-    logger.info("Tearing down test environment")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
 
 class RequestTestModel(BaseModel):
     name: str

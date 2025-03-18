@@ -124,6 +124,7 @@ This file tests the core functionality of the BaseService class:
 """
 
 import pytest
+import time
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -365,6 +366,8 @@ class TestBaseService:
         
         # Update an item
         last_updated = base_service._last_updated
+        # Sleep a small amount to ensure timestamp changes
+        time.sleep(0.01)
         base_service.set_item("key1", "new_value")
         
         # Verify item was updated
