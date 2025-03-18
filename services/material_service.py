@@ -649,5 +649,19 @@ class MaterialService:
                 message=f"Failed to deprecate material {material_id}: {str(e)}"
             )
 
-# Create a singleton instance
-material_service = MaterialService()
+# Singleton instance
+_material_service = None
+
+def get_material_service():
+    """
+    Factory function to get or create the material service instance.
+    Uses the singleton pattern to ensure only one instance exists.
+    
+    Returns:
+        MaterialService: The singleton material service instance
+    """
+    global _material_service
+    if _material_service is None:
+        from .monitor_service import get_monitor_service
+        _material_service = MaterialService(monitor_service=get_monitor_service())
+    return _material_service

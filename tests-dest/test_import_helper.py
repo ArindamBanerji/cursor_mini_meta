@@ -4,7 +4,8 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, ModuleType
+from typing import Dict, List, Optional, Union, Any
+from types import ModuleType
 
 """Standard test file imports and setup.
 
@@ -15,7 +16,6 @@ It provides:
 3. Common test imports and fixtures
 4. Service initialization support
 5. Logging configuration
-6. Test environment variable management
 """
 
 # Configure logging first
@@ -71,7 +71,7 @@ else:
 
 # Import the test_import_helper
 try:
-    from test_import_helper import setup_test_paths
+    from test_import_helper import setup_test_paths, setup_test_env_vars
     setup_test_paths()
     logger.info("Successfully initialized test paths from test_import_helper")
 except ImportError as e:
@@ -80,26 +80,6 @@ except ImportError as e:
         sys.path.insert(0, str(test_dir.parent))
     os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
     logger.warning(f"Failed to import test_import_helper: {e}. Using fallback configuration.")
-
-# Set up test environment variables
-def setup_test_env() -> None:
-    """Set up test environment variables."""
-    try:
-        os.environ.setdefault("PYTEST_CURRENT_TEST", "True")
-        logger.info("Test environment variables initialized")
-    except Exception as e:
-        logger.error(f"Error setting up test environment: {e}")
-
-def teardown_test_env() -> None:
-    """Clean up test environment variables."""
-    try:
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            del os.environ["PYTEST_CURRENT_TEST"]
-        logger.info("Test environment variables cleaned up")
-    except KeyError:
-        logger.warning("PYTEST_CURRENT_TEST was already removed")
-    except Exception as e:
-        logger.error(f"Error cleaning up test environment: {e}")
 
 # Common test imports
 import pytest
@@ -123,131 +103,103 @@ except ImportError as e:
     logger.warning(f"Optional import failed: {e}")
     logger.debug("Stack trace:", exc_info=True)
 
-# Register setup/teardown hooks
-def setup_module(module: ModuleType) -> None:
-    """Set up the test module.
-    
-    Args:
-        module: The test module being set up
-    """
-    logger.info("Setting up test module")
-    setup_test_env()
-
-def teardown_module(module: ModuleType) -> None:
-    """Tear down the test module.
-    
-    Args:
-        module: The test module being torn down
-    """
-    logger.info("Tearing down test module")
-    teardown_test_env()
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment for each test."""
+    setup_test_env_vars(monkeypatch)
+    logger.info("Test environment initialized")
+    yield
+    logger.info("Test environment cleaned up")
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
-# test_import_helper.py
 """
-Helper module for managing imports in tests.
-
-This module sets up the correct Python paths for tests to ensure
-that test modules can import application modules correctly without
-namespace conflicts.
+Test helper for setting up import paths for tests.
 """
 import os
 import sys
-import json
+import logging
+import pytest
 from pathlib import Path
+from typing import Dict, Any, Optional
 
-def setup_test_paths():
-    """
-    Set up Python path for tests.
-    
-    This function:
-    1. Loads config from SAP_HARNESS_CONFIG environment variable
-    2. Adds project root to sys.path
-    3. Sets up import paths to avoid module conflicts
+logger = logging.getLogger(__name__)
+
+def find_project_root() -> str:
+    """Find the project root directory."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Go up one level from tests-dest to find the project root
+    return os.path.dirname(current_dir)
+
+def setup_test_paths() -> str:
+    """Set up Python path for tests.
     
     Returns:
-        dict: The loaded configuration
+        The project root path
     """
-    # Try to load from environment variable
-    config_path = os.environ.get("SAP_HARNESS_CONFIG")
-    structure = None
-    
-    if config_path and Path(config_path).exists():
-        try:
-            with open(config_path, "r") as f:
-                structure = json.load(f)
-                print(f"Loaded config from {config_path}")
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error loading config from {config_path}: {e}")
-    
-    # Fall back to environment variable or calculation if config not loaded
-    if not structure:
-        project_root = os.environ.get("SAP_HARNESS_HOME")
-        if not project_root:
-            # Calculate project root by going up from current file
-            current_file = Path(__file__).resolve()
-            
-            # Search for main.py to identify project root
-            for parent in [current_file.parent] + list(current_file.parents):
-                if (parent / "main.py").exists():
-                    project_root = str(parent)
-                    break
-            
-            # If we couldn't find main.py, use the parent directory of tests-dest
-            if not project_root:
-                for parent in [current_file.parent] + list(current_file.parents):
-                    if (parent / "tests-dest").exists():
-                        project_root = str(parent)
-                        break
-            
-            # Last resort: use two directories up from current file
-            if not project_root:
-                project_root = str(Path(__file__).resolve().parents[1])
-        
-        structure = {
-            "project_root": project_root,
-            "test_dirs": ["tests-dest"],
-            "module_mappings": {}
-        }
-    
-    # Ensure project_root is in sys.path
-    project_root = structure["project_root"]
+    project_root = find_project_root()
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
-        print(f"Added {project_root} to Python path")
     
-    # Set environment variable if not already set
-    if not os.environ.get("SAP_HARNESS_HOME"):
-        os.environ["SAP_HARNESS_HOME"] = project_root
-        print(f"Set SAP_HARNESS_HOME={project_root}")
-    
-    # Add test directories to prevent import conflicts
-    for test_dir in structure.get("test_dirs", ["tests-dest"]):
-        test_path = os.path.join(project_root, test_dir)
-        if os.path.exists(test_path) and test_path not in sys.path:
-            # Add test directory to path to enable imports from test modules
-            sys.path.insert(0, test_path)
-            print(f"Added {test_path} to Python path")
-    
-    # Handle module mappings to prevent conflicts
-    for test_path, module_name in structure.get("module_mappings", {}).items():
-        full_path = os.path.join(project_root, test_path)
-        if os.path.exists(full_path) and full_path not in sys.path:
-            sys.path.insert(0, full_path)
-            print(f"Added module mapping: {test_path} -> {module_name}")
-    
-    # Return the structure for reference
-    return structure
+    # Also ensure test dir is in path
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    if test_dir not in sys.path:
+        sys.path.insert(0, test_dir)
+        
+    logger.info(f"Set up paths: project_root={project_root}, test_dir={test_dir}")
+    return project_root
 
-# Snippet for test files - execute when imported
-structure = setup_test_paths()
-def setup_module(module):
-    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
+def setup_test_env_vars(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Set up environment variables for tests.
     
-def teardown_module(module):
-    """Clean up after the test module"""
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
+    Returns:
+        The project root path
+    """
+    project_root = find_project_root()
+    env_vars: Dict[str, str] = {
+        "PROJECT_ROOT": project_root,
+        "SAP_HARNESS_HOME": project_root,
+        "SAP_HARNESS_CONFIG": os.path.join(project_root, "config"),
+        "TEST_MODE": "true"
+    }
+    
+    # Set environment variables using monkeypatch
+    for key, value in env_vars.items():
+        monkeypatch.setenv(key, value)
+    
+    # Handle PYTEST_CURRENT_TEST specially
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_setup")
+    
+    logger.info(f"Set environment variables: {env_vars}")
+    return project_root
+
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """Set up test environment."""
+    # Setup paths first
+    project_root = setup_test_paths()
+    
+    # Then setup environment variables
+    setup_test_env_vars(monkeypatch)
+    
+    # Set PYTEST_CURRENT_TEST for the current test
+    test_name = request.node.name if request.node else "unknown_test"
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", f"{test_name} (setup)")
+    
+    logger.info(f"Test environment initialized for {test_name}")
+    
+    # Yield for test execution
+    yield
+    
+    # Update PYTEST_CURRENT_TEST for teardown
+    try:
+        # At teardown, first check if it exists
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            monkeypatch.setenv("PYTEST_CURRENT_TEST", f"{test_name} (teardown)")
+        else:
+            # If it doesn't exist, create it to avoid errors
+            monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_teardown")
+    except Exception as e:
+        logger.warning(f"Error handling PYTEST_CURRENT_TEST: {e}")
+    
+    logger.info(f"Test environment cleaned up for {test_name}") 

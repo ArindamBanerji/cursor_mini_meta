@@ -1,0 +1,59 @@
+"""
+Diagnostic tests for the dashboard controller.
+
+This file tests our dependency unwrapping approach with the dashboard controller,
+which has service dependencies and more complex logic.
+"""
+
+# Additional imports for dashboard testing
+import json
+from datetime import datetime
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from controllers.dashboard_controller import show_dashboard, redirect_to_dashboard
+from services.state_manager import state_manager
+
+# Test fixtures
+@pytest.fixture
+def mock_request():
+    """Create a mock request object."""
+    request = MagicMock(spec=Request)
+    request.url = MagicMock()
+    request.url.path = "/dashboard"
+    request.query_params = {}
+    return request
+
+@pytest.fixture
+def mock_state_manager():
+    """Create a mock state manager."""
+    with patch('controllers.dashboard_controller.state_manager') as mock:
+        mock.get.side_effect = lambda key, default=None: {
+            "dashboard_visits": 5,
+            "last_dashboard_visit": "2024-03-18 12:00:00"
+        }.get(key, default)
+        yield mock
+
+# Test functions
+@pytest.mark.asyncio
+async def test_show_dashboard(mock_request, mock_state_manager):
+    """Test the show_dashboard endpoint."""
+    response = await show_dashboard(mock_request)
+    
+    assert isinstance(response, dict)
+    assert "welcome_message" in response
+    assert "visit_count" in response
+    assert response["visit_count"] == 6  # Should be incremented from 5
+    assert "last_visit" in response
+    assert "current_time" in response
+
+@pytest.mark.asyncio
+async def test_redirect_to_dashboard(mock_request):
+    """Test the redirect_to_dashboard endpoint."""
+    response = await redirect_to_dashboard(mock_request)
+    
+    assert isinstance(response, RedirectResponse)
+    assert response.status_code == 302  # GET redirect uses 302 Found
+    assert "dashboard" in response.headers["location"]
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"]) 

@@ -4,8 +4,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import pytest
+from unittest.mock import MagicMock, patch
+from fastapi import HTTPException
 from meta_routes import RouteDefinition, HttpMethod, ALL_ROUTES
 from services.url_service import URLService
+from models.base_model import BaseModel
+from utils.error_utils import ValidationError
 
 # Create test routes for isolated testing
 TEST_ROUTES = [
@@ -32,17 +36,11 @@ TEST_ROUTES = [
     )
 ]
 
+# Test data
+TEST_URL = "https://example.com/api/v1/materials"
+TEST_PARAMS = {"id": "123", "type": "raw"}
+TEST_HEADERS = {"Authorization": "Bearer token123"}
 
-def setup_module(module):
-    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    """Clean up after the test module"""
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
 class TestURLService:
     def setup_method(self):
         # Create a URLService with our test routes

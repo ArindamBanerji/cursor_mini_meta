@@ -315,7 +315,7 @@ def process_files(test_files, snippet_path=None, add=True, create_backup=False, 
                 has_snippet = SNIPPET_START_MARKER in content
                 msg = f"Snippet {'present in' if has_snippet else 'missing from'} {file_path}"
                 log_messages.append(msg)
-                if (add and not has_snippet) or (not add and has_snippet):
+                if (add and has_snippet) or (not add and not has_snippet):
                     success_count += 1
                 else:
                     failure_count += 1

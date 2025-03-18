@@ -1,7 +1,7 @@
 # services/monitor_health.py
 """
-Health check functionality for the monitor service.
-This module provides system health checks and reporting.
+Health monitoring module for the SAP Test Harness.
+Provides functionality for checking system health and status.
 """
 
 import logging
@@ -12,6 +12,21 @@ import socket
 import time
 from datetime import datetime, timedelta  # Keep this import at file level
 from typing import Dict, Any, List, Optional, Tuple
+from services.monitor_health_helpers import (
+    get_iso_timestamp,
+    get_system_info,
+    is_test_environment,
+    get_disk_usage_details,
+    get_memory_usage_details,
+    determine_disk_status,
+    determine_memory_status,
+    determine_overall_status
+)
+
+from services.state_manager import state_manager
+from services.monitor_core import MonitorCore
+from services.monitor_metrics import MonitorMetrics
+from services.monitor_errors import MonitorErrors
 
 # Configure logging
 logger = logging.getLogger("monitor_health")
@@ -58,20 +73,7 @@ class MonitorHealth:
         
         # Calculate overall status
         components = [db_status, services_status, disk_status, memory_status]
-        error_components = [c for c in components if c["status"] == "error"]
-        warning_components = [c for c in components if c["status"] == "warning"]
-        
-        if error_components:
-            overall_status = "error"
-            error_names = [c.get("name", "unknown") for c in error_components]
-            logger.warning(f"Overall status: error - components with errors: {error_names}")
-        elif warning_components:
-            overall_status = "warning"
-            warning_names = [c.get("name", "unknown") for c in warning_components]
-            logger.warning(f"Overall status: warning - components with warnings: {warning_names}")
-        else:
-            overall_status = "healthy"
-            logger.info("Overall status: healthy")
+        overall_status, error_names, warning_names = determine_overall_status(components)
             
         # Calculate response time
         response_time = time.time() - start_time
@@ -87,7 +89,7 @@ class MonitorHealth:
                 "disk": disk_status,
                 "memory": memory_status
             },
-            "system_info": self._get_system_info()
+            "system_info": get_system_info()
         }
         
         logger.info(f"Returning health data with status: {overall_status}")
@@ -214,23 +216,30 @@ class MonitorHealth:
         # No override, do normal check
         try:
             # Import here to avoid circular imports
-            from services import get_service, get_service_status
+            from services import get_monitor_service, get_material_service
             
             # Check status of known services
-            service_status = get_service_status()
-            
-            # Get individual service statuses
             services_status = {}
             
-            for service_name, status in service_status.items():
-                services_status[service_name] = status
+            try:
+                monitor_service = get_monitor_service()
+                services_status["monitor_service"] = "initialized" if monitor_service else "unavailable"
+            except Exception as e:
+                logger.warning(f"Error checking monitor service: {str(e)}")
+                services_status["monitor_service"] = "error"
+                
+            try:
+                material_service = get_material_service()
+                services_status["material_service"] = "initialized" if material_service else "unavailable"
+            except Exception as e:
+                logger.warning(f"Error checking material service: {str(e)}")
+                services_status["material_service"] = "error"
             
             # FOR TESTING: Force services to be available in test environment
             if 'PYTEST_CURRENT_TEST' in os.environ:
                 logger.info("Running in test environment, forcing services to be available")
                 services_status = {
                     "material_service": "initialized",
-                    "p2p_service": "initialized",
                     "monitor_service": "initialized"
                 }
             
@@ -249,10 +258,10 @@ class MonitorHealth:
                 "name": "services",
                 "status": status,
                 "details": {
-                    "services": services_status,
-                    "components": component_status
+                    "services": services_status
                 }
             }
+            
         except Exception as e:
             logger.error(f"Services status check failed: {str(e)}", exc_info=True)
             return {
@@ -293,45 +302,24 @@ class MonitorHealth:
             try:
                 import psutil
                 disk_usage = psutil.disk_usage('.')
-                
-                # Calculate percentages
-                percent_used = disk_usage.percent
-                percent_free = 100 - percent_used
-                
-                logger.debug(f"Disk usage: {percent_used:.1f}% used, {percent_free:.1f}% free")
-                
-                # Determine status based on free space
-                if percent_free < 5:  # Critical
-                    status = "error"
-                    logger.warning(f"Critical disk space: only {percent_free:.1f}% free")
-                elif percent_free < 10:  # Warning
-                    status = "warning"
-                    logger.warning(f"Low disk space: only {percent_free:.1f}% free")
-                else:  # Healthy
-                    status = "healthy"
-                    logger.debug(f"Healthy disk space: {percent_free:.1f}% free")
+                details = get_disk_usage_details(disk_usage)
+                status = determine_disk_status(details["percent_free"])
                 
                 # FOR TESTING: Force disk to be healthy in test environment
-                if 'PYTEST_CURRENT_TEST' in os.environ:
+                if is_test_environment():
                     logger.info("Running in test environment, forcing disk status to healthy")
                     status = "healthy"
                     
                 return {
                     "name": "disk",
                     "status": status,
-                    "details": {
-                        "total_gb": round(disk_usage.total / (1024**3), 2),
-                        "used_gb": round(disk_usage.used / (1024**3), 2),
-                        "free_gb": round(disk_usage.free / (1024**3), 2),
-                        "percent_used": round(percent_used, 1),
-                        "percent_free": round(percent_free, 1)
-                    }
+                    "details": details
                 }
             except Exception as disk_error:
                 logger.error(f"Disk usage check failed: {str(disk_error)}", exc_info=True)
                 
                 # FOR TESTING: Use dummy values in test environment
-                if 'PYTEST_CURRENT_TEST' in os.environ:
+                if is_test_environment():
                     logger.info("Running in test environment, using dummy disk values")
                     return {
                         "name": "disk",
@@ -388,45 +376,24 @@ class MonitorHealth:
             try:
                 import psutil
                 memory = psutil.virtual_memory()
-                
-                # Calculate percentages and values
-                percent_used = memory.percent
-                percent_available = 100 - percent_used
-                
-                logger.debug(f"Memory usage: {percent_used:.1f}% used, {percent_available:.1f}% available")
-                
-                # Determine status based on available memory
-                if percent_available < 5:  # Critical
-                    status = "error"
-                    logger.warning(f"Critical memory: only {percent_available:.1f}% available")
-                elif percent_available < 15:  # Warning
-                    status = "warning"
-                    logger.warning(f"Low memory: only {percent_available:.1f}% available")
-                else:  # Healthy
-                    status = "healthy"
-                    logger.debug(f"Healthy memory: {percent_available:.1f}% available")
+                details = get_memory_usage_details(memory)
+                status = determine_memory_status(details["percent_available"])
                 
                 # FOR TESTING: Force memory to be healthy in test environment
-                if 'PYTEST_CURRENT_TEST' in os.environ:
+                if is_test_environment():
                     logger.info("Running in test environment, forcing memory status to healthy")
                     status = "healthy"
                     
                 return {
                     "name": "memory",
                     "status": status,
-                    "details": {
-                        "total_gb": round(memory.total / (1024**3), 2),
-                        "available_gb": round(memory.available / (1024**3), 2),
-                        "used_gb": round(memory.used / (1024**3), 2),
-                        "percent_used": round(percent_used, 1),
-                        "percent_available": round(percent_available, 1)
-                    }
+                    "details": details
                 }
             except Exception as memory_error:
                 logger.error(f"Memory check failed: {str(memory_error)}", exc_info=True)
                 
                 # FOR TESTING: Use dummy values in test environment
-                if 'PYTEST_CURRENT_TEST' in os.environ:
+                if is_test_environment():
                     logger.info("Running in test environment, using dummy memory values")
                     return {
                         "name": "memory",
@@ -493,8 +460,7 @@ class MonitorHealth:
         Get current time as ISO 8601 timestamp.
         
         Returns:
-            ISO formatted timestamp string
+            ISO 8601 formatted timestamp string
         """
-        from datetime import datetime  # Import datetime here to ensure it's available
-        return datetime.now().isoformat()
+        return get_iso_timestamp()
 

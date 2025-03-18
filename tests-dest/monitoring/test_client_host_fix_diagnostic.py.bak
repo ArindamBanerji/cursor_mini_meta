@@ -358,25 +358,6 @@ def get_safe_client_host(request: Request) -> str:
         "title": "Set up environment variable in tests",
         "description": "Ensure the PYTEST_CURRENT_TEST environment variable is set in all test files",
         "code": """
-def setup_module(module):
-    \"\"\"Set up the test module by ensuring PYTEST_CURRENT_TEST is set\"\"\"
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    \"\"\"Clean up after the test module\"\"\"
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
-"""
-    })
-    
-    # Recommendation 3: Patch TestClient for tests
-    recommendations.append({
-        "title": "Patch TestClient for tests",
-        "description": "Create a custom TestClient that ensures request.client.host is set",
-        "code": """
-# Create a custom TestClient that patches the request handling
 class PatchedTestClient(TestClient):
     def request(self, *args, **kwargs):
         # Set the environment variable before making the request

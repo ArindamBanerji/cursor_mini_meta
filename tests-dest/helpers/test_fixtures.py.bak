@@ -1,0 +1,22 @@
+"""
+Common test fixtures for all tests.
+"""
+import pytest
+import logging
+
+logger = logging.getLogger(__name__)
+
+@pytest.fixture(autouse=True)
+def setup_test_env():
+    """Set up test environment for each test.
+    
+    This fixture runs automatically for each test function.
+    It handles setting up and tearing down the test environment.
+    """
+    # Set up
+    logger.info("Test environment initialized")
+    
+    yield
+    
+    # Clean up
+    logger.info("Test environment cleaned up") 

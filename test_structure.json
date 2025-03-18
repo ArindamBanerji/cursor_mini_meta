@@ -1,5 +1,5 @@
 {
-  "project_root": "C:\\Users\\baner\\CopyFolder\\IoT_thoughts\\python-projects\\kaggle_experiments\\cursor_projects\\mini_meta_harness",
+  "project_root": "C:/Users/baner/CopyFolder/IoT_thoughts/python-projects/kaggle_experiments/cursor_projects/mini_meta_harness",
   "source_dirs": [
     "services",
     "models",
@@ -19,6 +19,6 @@
     "monitoring"
   ],
   "module_mappings": {
-    "tests-dest/models": "model_tests"
+    "tests-dest/api": "api"
   }
 }

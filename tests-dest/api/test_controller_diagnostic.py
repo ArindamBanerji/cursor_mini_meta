@@ -1,188 +1,276 @@
-"""
-Diagnostic tests for comparing different approaches to testing FastAPI controllers.
-
-This file contains tests that compare:
-1. The original approach using patch decorators
-2. The new approach using unwrap_dependencies
-3. A hybrid approach
-
-The goal is to understand the pros and cons of each approach and identify any issues.
-"""
-
-import sys
+# BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
+# Critical imports that must be preserved
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import sys
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+from types import ModuleType
 
+"""Standard test file imports and setup.
+
+This snippet is automatically added to test files by SnippetForTests.py.
+It provides:
+1. Dynamic project root detection and path setup
+2. Environment variable configuration
+3. Common test imports and fixtures
+4. Service initialization support
+5. Logging configuration
+"""
+
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def find_project_root(test_dir: Path) -> Optional[Path]:
+    """Find the project root directory.
+    
+    Args:
+        test_dir: The directory containing the test file
+        
+    Returns:
+        The project root directory or None if not found
+    """
+    try:
+        # Try to find project root by looking for main.py or known directories
+        for parent in [test_dir] + list(test_dir.parents):
+            # Check for main.py as an indicator of project root
+            if (parent / "main.py").exists():
+                return parent
+            # Check for typical project structure indicators
+            if all((parent / d).exists() for d in ["services", "models", "controllers"]):
+                return parent
+        
+        # If we still don't have a project root, use parent of the tests-dest directory
+        for parent in test_dir.parents:
+            if parent.name == "tests-dest":
+                return parent.parent
+                
+        return None
+    except Exception as e:
+        logger.error(f"Error finding project root: {e}")
+        return None
+
+# Find project root dynamically
+test_file = Path(__file__).resolve()
+test_dir = test_file.parent
+project_root = find_project_root(test_dir)
+
+if project_root:
+    logger.info(f"Project root detected at: {project_root}")
+    
+    # Add project root to path if found
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+        logger.info(f"Added {project_root} to Python path")
+else:
+    logger.warning("Could not detect project root")
+
+# Import the test_import_helper
+try:
+    from test_import_helper import setup_test_paths, setup_test_env_vars
+    setup_test_paths()
+    logger.info("Successfully initialized test paths from test_import_helper")
+except ImportError as e:
+    # Fall back if test_import_helper is not available
+    if str(test_dir.parent) not in sys.path:
+        sys.path.insert(0, str(test_dir.parent))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
+    logger.warning(f"Failed to import test_import_helper: {e}. Using fallback configuration.")
+
+# Common test imports
 import pytest
-import asyncio
-import inspect
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import Request, Depends
+from unittest.mock import MagicMock, AsyncMock, patch
+from fastapi.testclient import TestClient
+
+# Import common fixtures and services
+try:
+    from conftest import test_services
+    from services.base_service import BaseService
+    from services.monitor_service import MonitorService
+    from services.template_service import TemplateService
+    from services.p2p_service import P2PService
+    from models.base_model import BaseModel
+    from models.material import Material
+    from models.requisition import Requisition
+    from fastapi import FastAPI, HTTPException
+    logger.info("Successfully imported test fixtures and services")
+except ImportError as e:
+    # Log import error but continue - not all tests need all imports
+    logger.warning(f"Optional import failed: {e}")
+    logger.debug("Stack trace:", exc_info=True)
+
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment for each test."""
+    setup_test_env_vars(monkeypatch)
+    logger.info("Test environment initialized")
+    yield
+    logger.info("Test environment cleaned up")
+# END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
+
+"""
+Diagnostic tests for controller functionality.
+
+This file tests our dependency unwrapping approach with a basic controller,
+focusing on core functionality like request handling and response formatting.
+"""
+
+import os
+import sys
+import logging
+from pathlib import Path
+import pytest
+from unittest.mock import MagicMock, AsyncMock, patch
+from fastapi.testclient import TestClient
+from test_import_helper import setup_test_paths, setup_test_env_vars
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Set up paths
+project_root = setup_test_paths()
+
+# Additional imports for controller testing
+import json
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
-
-from controllers.material_common import (
-    get_material_service_dependency,
-    get_monitor_service_dependency
+from controllers.monitor_controller import (
+    api_health_check,
+    api_get_metrics,
+    get_safe_client_host
 )
-from controllers.material_ui_controller import list_materials
-from api.test_helpers import unwrap_dependencies, create_controller_test
-from models.material import Material, MaterialType, UnitOfMeasure, MaterialStatus
+from services import get_monitor_service
 
-# Create test data
-TEST_MATERIAL = Material(
-    material_number="MAT12345",
-    name="Test Material",
-    description="Test Description",
-    type=MaterialType.FINISHED,
-    base_unit=UnitOfMeasure.EACH,
-    status=MaterialStatus.ACTIVE
-)
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment for each test."""
+    setup_test_env_vars(monkeypatch)
+    logger.info("Test environment initialized")
+    yield
+    logger.info("Test environment cleaned up")
 
-# Fixtures
+@pytest.fixture
+def test_app():
+    """Create a test FastAPI application."""
+    app = FastAPI()
+    
+    @app.get("/test")
+    async def test_endpoint():
+        return {"message": "Test endpoint"}
+    
+    return app
+
+@pytest.fixture
+def test_client(test_app):
+    """Create a test client."""
+    return TestClient(test_app)
+
 @pytest.fixture
 def mock_request():
-    """Create a mock request object for testing."""
-    request = AsyncMock(spec=Request)
-    request.url = MagicMock()
-    request.url.path = "/materials"
+    """Create a mock request object."""
+    request = MagicMock(spec=Request)
+    request.client = MagicMock()
+    request.client.host = "127.0.0.1"
     request.query_params = {}
     return request
 
-@pytest.fixture
-def mock_material_service():
-    """Create a mock material service for testing."""
-    service = MagicMock()
-    service.get_material.return_value = TEST_MATERIAL
-    service.list_materials.return_value = [TEST_MATERIAL]
-    return service
-
-@pytest.fixture
-def mock_monitor_service():
-    """Create a mock monitor service for testing."""
-    service = MagicMock()
-    service.log_error = MagicMock()
-    return service
-
-# Diagnostic tests
-
-@pytest.mark.asyncio
-@patch('services.get_material_service')
-@patch('services.get_monitor_service')
-async def test_original_approach(mock_get_monitor, mock_get_material, mock_request, mock_material_service, mock_monitor_service):
-    """Test the original approach using patch decorators."""
-    print("\n--- Testing original approach with patch decorators ---")
-    start_time = time.time()
+def test_get_safe_client_host(mock_request):
+    """Test the get_safe_client_host function."""
+    # Test with TEST_ENV=True (this takes precedence)
+    host = get_safe_client_host(mock_request)
+    assert host == 'test-client'  # Should return test-client in test environment
     
-    # Setup mocks
-    mock_get_material.return_value = mock_material_service
-    mock_get_monitor.return_value = mock_monitor_service
-    
-    # Call the function - expect it to fail with AttributeError
-    with pytest.raises(AttributeError) as excinfo:
-        await list_materials(mock_request)
-    
-    # Verify the error message
-    assert "'Depends' object has no attribute" in str(excinfo.value)
-    
-    # Print diagnostic information
-    print(f"Original approach execution time: {time.time() - start_time:.6f} seconds")
-
-def setup_module(module):
-    """Set up the test module by ensuring PYTEST_CURRENT_TEST is set"""
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    """Clean up after the test module"""
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
-
-@pytest.mark.asyncio
-async def test_unwrap_approach(mock_request, mock_material_service, mock_monitor_service):
-    """Test the new approach using unwrap_dependencies."""
-    print("\n--- Testing new approach with unwrap_dependencies ---")
-    start_time = time.time()
-    
-    # Create wrapped controller with mocks
-    wrapped = unwrap_dependencies(
-        list_materials,
-        material_service=mock_material_service,
-        monitor_service=mock_monitor_service
-    )
-    
-    # Call the function
-    result = await wrapped(mock_request)
-    
-    # Verify result
-    assert "materials" in result
-    assert result["materials"] == [TEST_MATERIAL]
-    assert "count" in result
-    assert result["count"] == 1
-    mock_material_service.list_materials.assert_called_once()
-    
-    # Print diagnostic information
-    print(f"Unwrap approach execution time: {time.time() - start_time:.6f} seconds")
-    print(f"Result type: {type(result)}")
-    print(f"Materials count: {result['count']}")
-    print(f"Mock calls: {mock_material_service.list_materials.call_count}")
-
-@pytest.mark.asyncio
-async def test_create_controller_test_approach(mock_request, mock_material_service, mock_monitor_service):
-    """Test the approach using create_controller_test."""
-    print("\n--- Testing approach with create_controller_test ---")
-    start_time = time.time()
-    
-    # Create test function
-    test_func = create_controller_test(list_materials)
-    
-    # Call the test function
-    result = await test_func(
-        mock_request=mock_request,
-        mock_material_service=mock_material_service,
-        mock_monitor_service=mock_monitor_service
-    )
-    
-    # Verify result
-    assert "materials" in result
-    assert result["materials"] == [TEST_MATERIAL]
-    assert "count" in result
-    assert result["count"] == 1
-    mock_material_service.list_materials.assert_called_once()
-    
-    # Print diagnostic information
-    print(f"create_controller_test approach execution time: {time.time() - start_time:.6f} seconds")
-    print(f"Result type: {type(result)}")
-    print(f"Materials count: {result['count']}")
-    print(f"Mock calls: {mock_material_service.list_materials.call_count}")
-
-# Diagnostic function to inspect controller parameters
-def inspect_controller_parameters():
-    """Inspect the parameters of the controller function."""
-    print("\n--- Inspecting controller parameters ---")
-    
-    # Get the signature of the controller function
-    sig = inspect.signature(list_materials)
-    
-    # Print information about each parameter
-    for name, param in sig.parameters.items():
-        print(f"Parameter: {name}")
-        print(f"  Default: {param.default}")
-        print(f"  Annotation: {param.annotation}")
+    # Test with TEST_ENV=False
+    with patch.dict(os.environ, {'TEST_ENV': 'False'}):
+        host = get_safe_client_host(mock_request)
+        assert host == '127.0.0.1'  # Should return actual client host
         
-        # Check if it's a Depends parameter
-        if param.default is not inspect.Parameter.empty and hasattr(param.default, "dependency"):
-            print(f"  Is Depends: True")
-            print(f"  Dependency: {param.default.dependency}")
-        else:
-            print(f"  Is Depends: False")
-        
-        print()
+        # Test with no client
+        mock_request.client = None
+        host = get_safe_client_host(mock_request)
+        assert host == 'unknown'
 
-# Run the diagnostic function
-inspect_controller_parameters()
+@pytest.mark.asyncio
+async def test_health_check_endpoint(mock_request):
+    """Test the health check endpoint."""
+    # Mock the monitor service with a proper dictionary return value
+    mock_monitor = MagicMock()
+    health_data = {
+        "status": "healthy",
+        "components": {
+            "database": {
+                "status": "healthy",
+                "message": "Connected"
+            },
+            "api": {
+                "status": "healthy",
+                "message": "Running"
+            }
+        }
+    }
+    mock_monitor.check_system_health = MagicMock(return_value=health_data)
+    
+    # Test the endpoint
+    response = await api_health_check(mock_request, mock_monitor)
+    
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+    data = json.loads(response.body)
+    assert data["status"] == "healthy"
+    assert "components" in data
+    assert data["components"]["database"]["status"] == "healthy"
+    assert data["components"]["api"]["status"] == "healthy"
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint(mock_request):
+    """Test the metrics endpoint."""
+    # Test the endpoint
+    response = await api_get_metrics(mock_request)
+    
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == 200
+    data = json.loads(response.body)
+    assert "data" in data
+    assert "success" in data
+    assert data["success"] is True
+    assert "message" in data
+    assert isinstance(data["data"], dict)
+    assert "count" in data["data"]
+    assert "time_period_hours" in data["data"]
+
+def test_endpoint_dependency_injection(test_app, test_client):
+    """Test dependency injection in endpoints."""
+    # Define a test dependency
+    async def get_current_user():
+        return {"username": "testuser"}
+    
+    @test_app.get("/protected")
+    async def protected_endpoint(current_user: dict = Depends(get_current_user)):
+        return current_user
+    
+    # Test the endpoint
+    response = test_client.get("/protected")
+    assert response.status_code == 200
+    assert response.json() == {"username": "testuser"}
+
+def test_error_handling(test_app, test_client):
+    """Test error handling in endpoints."""
+    @test_app.get("/error")
+    async def error_endpoint():
+        raise HTTPException(status_code=400, detail="Test error")
+    
+    # Test the endpoint
+    response = test_client.get("/error")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Test error"
 
 if __name__ == "__main__":
-    # Run the tests directly if this file is executed
-    asyncio.run(test_original_approach(MagicMock(), MagicMock(), AsyncMock(), MagicMock(), MagicMock()))
-    asyncio.run(test_unwrap_approach(AsyncMock(), MagicMock(), MagicMock()))
-    asyncio.run(test_create_controller_test_approach(AsyncMock(), MagicMock(), MagicMock())) 
+    pytest.main([__file__, "-v"]) 

@@ -10,7 +10,7 @@ from models.p2p import (
 )
 from models.material import MaterialStatus
 from services.state_manager import state_manager
-from services.material_service import material_service
+from services.material_service import get_material_service
 from services.p2p_service_helpers import (
     validate_material_active, prepare_received_items, 
     determine_order_status_from_items, append_note
@@ -45,7 +45,7 @@ class P2PService:
             material_service_instance: Optional material service instance for dependency injection
         """
         self.state_manager = state_manager_instance or state_manager
-        self.material_service = material_service_instance or material_service
+        self.material_service = material_service_instance or get_material_service()
         self.data_layer = P2PDataLayer(self.state_manager)
     
     # ===== Requisition Core Methods (CRUD) =====

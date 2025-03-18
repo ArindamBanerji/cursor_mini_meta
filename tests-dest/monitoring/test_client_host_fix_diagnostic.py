@@ -4,7 +4,8 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, ModuleType
+from typing import Dict, List, Optional, Union, Any
+from types import ModuleType
 
 """Standard test file imports and setup.
 
@@ -15,7 +16,6 @@ It provides:
 3. Common test imports and fixtures
 4. Service initialization support
 5. Logging configuration
-6. Test environment variable management
 """
 
 # Configure logging first
@@ -71,7 +71,7 @@ else:
 
 # Import the test_import_helper
 try:
-    from test_import_helper import setup_test_paths
+    from test_import_helper import setup_test_paths, setup_test_env_vars
     setup_test_paths()
     logger.info("Successfully initialized test paths from test_import_helper")
 except ImportError as e:
@@ -80,26 +80,6 @@ except ImportError as e:
         sys.path.insert(0, str(test_dir.parent))
     os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
     logger.warning(f"Failed to import test_import_helper: {e}. Using fallback configuration.")
-
-# Set up test environment variables
-def setup_test_env() -> None:
-    """Set up test environment variables."""
-    try:
-        os.environ.setdefault("PYTEST_CURRENT_TEST", "True")
-        logger.info("Test environment variables initialized")
-    except Exception as e:
-        logger.error(f"Error setting up test environment: {e}")
-
-def teardown_test_env() -> None:
-    """Clean up test environment variables."""
-    try:
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            del os.environ["PYTEST_CURRENT_TEST"]
-        logger.info("Test environment variables cleaned up")
-    except KeyError:
-        logger.warning("PYTEST_CURRENT_TEST was already removed")
-    except Exception as e:
-        logger.error(f"Error cleaning up test environment: {e}")
 
 # Common test imports
 import pytest
@@ -123,24 +103,13 @@ except ImportError as e:
     logger.warning(f"Optional import failed: {e}")
     logger.debug("Stack trace:", exc_info=True)
 
-# Register setup/teardown hooks
-def setup_module(module: ModuleType) -> None:
-    """Set up the test module.
-    
-    Args:
-        module: The test module being set up
-    """
-    logger.info("Setting up test module")
-    setup_test_env()
-
-def teardown_module(module: ModuleType) -> None:
-    """Tear down the test module.
-    
-    Args:
-        module: The test module being torn down
-    """
-    logger.info("Tearing down test module")
-    teardown_test_env()
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment for each test."""
+    setup_test_env_vars(monkeypatch)
+    logger.info("Test environment initialized")
+    yield
+    logger.info("Test environment cleaned up")
 # END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
 
 """
@@ -503,25 +472,6 @@ def get_safe_client_host(request: Request) -> str:
         "title": "Set up environment variable in tests",
         "description": "Ensure the PYTEST_CURRENT_TEST environment variable is set in all test files",
         "code": """
-def setup_module(module):
-    \"\"\"Set up the test module by ensuring PYTEST_CURRENT_TEST is set\"\"\"
-    logger.info("Setting up test module")
-    os.environ["PYTEST_CURRENT_TEST"] = "True"
-    
-def teardown_module(module):
-    \"\"\"Clean up after the test module\"\"\"
-    logger.info("Tearing down test module")
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        del os.environ["PYTEST_CURRENT_TEST"]
-"""
-    })
-    
-    # Recommendation 3: Patch TestClient for tests
-    recommendations.append({
-        "title": "Patch TestClient for tests",
-        "description": "Create a custom TestClient that ensures request.client.host is set",
-        "code": """
-# Create a custom TestClient that patches the request handling
 class PatchedTestClient(TestClient):
     def request(self, *args, **kwargs):
         # Set the environment variable before making the request

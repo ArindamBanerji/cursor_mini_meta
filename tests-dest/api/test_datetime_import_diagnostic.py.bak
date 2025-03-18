@@ -1,0 +1,22 @@
+"""
+Test to diagnose datetime import issues in monitor_health.py
+"""
+
+import pytest
+from datetime import datetime
+from services.monitor_health import MonitorHealth
+from services.monitor_core import MonitorCore
+
+def test_get_iso_timestamp():
+    """Test that _get_iso_timestamp works correctly"""
+    monitor_core = MonitorCore()
+    monitor_health = MonitorHealth(monitor_core)
+    
+    # This should not raise a NameError
+    timestamp = monitor_health._get_iso_timestamp()
+    
+    # Verify the timestamp format
+    assert isinstance(timestamp, str)
+    assert "T" in timestamp  # ISO 8601 format contains 'T' between date and time
+    assert ":" in timestamp  # Time portion should contain colons
+    assert "-" in timestamp  # Date portion should contain hyphens 

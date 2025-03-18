@@ -26,11 +26,11 @@ NameError: name 'datetime' is not defined
 2. We also discovered a path discrepancy issue where the test was using a file from a different location than we expected:
    - The test was using the file from `$env:SAP_HARNESS_HOME` which was pointing to:
      ```
-     C:\Users\baner\CopyFolder\IOT_thoughts\python-projects\kaggle_experiments\LLM-projects\code\supply_chain\mini_meta_harness
+     C:\Users\baner\CopyFolder\IOT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness
      ```
    - While our workspace was at:
      ```
-     C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness
+     C:\Users\baner\CopyFolder\IOT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness
      ```
 
 ## Steps Taken to Resolve the Issue
@@ -39,7 +39,7 @@ NameError: name 'datetime' is not defined
    - We checked the value of `$env:SAP_HARNESS_HOME` and found it was pointing to a different directory than our workspace.
    - We manually updated the environment variable to point to the correct workspace directory:
      ```powershell
-     $env:SAP_HARNESS_HOME = "C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness"
+     $env:SAP_HARNESS_HOME = "C:\Users\baner\CopyFolder\IOT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness"
      ```
 
 2. **Code Fix Implementation**:

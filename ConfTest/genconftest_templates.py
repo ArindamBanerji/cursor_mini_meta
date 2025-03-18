@@ -8,7 +8,7 @@ to generate appropriate conftest.py files.
 
 def get_root_conftest_template():
     """Get the template for root directory conftest.py"""
-    return """\"\"\"
+    return \"""\"\"\"
 Shared test fixtures and configurations for all test categories.
 \"\"\"
 import pytest
@@ -16,19 +16,23 @@ import sys
 import os
 from datetime import datetime
 from fastapi.testclient import TestClient
+from test_import_helper import setup_test_paths, setup_test_env_vars
 
-# Register pytest_asyncio plugin (only at top-level conftest)
-pytest_plugins = ['pytest_asyncio']
+# Register pytest plugins
+pytest_plugins = ['pytest_asyncio']  # For async test support
 
-# Get project root from environment variable or use path calculation
-project_root = os.environ.get("SAP_HARNESS_HOME")
-if not project_root:
-    # Add project root to path to ensure imports work correctly
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    print(f"SAP_HARNESS_HOME environment variable not set. Using calculated path: {project_root}")
+# Set up paths at module level
+project_root = setup_test_paths()
 
-# Add project root to Python path
-sys.path.insert(0, project_root)
+@pytest.fixture(autouse=True)
+def _setup_test_env(monkeypatch):
+    \"\"\"
+    Fixture to ensure environment variables are set for each test.
+    This runs automatically for all tests.
+    \"\"\"
+    setup_test_env_vars(monkeypatch, project_root)
+    yield
+    # monkeypatch automatically restores environment variables
 
 # Now import application modules
 from services.state_manager import StateManager, state_manager
@@ -147,7 +151,7 @@ async def async_p2p_service():
     service = get_p2p_service()
     register_service("p2p", service)
     return service
-"""
+\"""
 
 def get_unit_conftest_template():
     """Get the template for unit test directory conftest.py"""
@@ -190,7 +194,7 @@ from conftest import (
 
 @pytest.fixture
 def mock_request():
-    \"\"\"Mock request object for unit testing controllers.\"\"\"
+    """Mock request object for unit testing controllers."""
     mock_req = MagicMock()
     mock_req.url = MagicMock()
     mock_req.url.path = "/test"
@@ -199,7 +203,7 @@ def mock_request():
 
 @pytest.fixture
 async def async_mock_request():
-    \"\"\"Async mock request object for unit testing controllers.\"\"\"
+    """Async mock request object for unit testing controllers."""
     mock_req = MagicMock()
     mock_req.url = MagicMock()
     mock_req.url.path = "/test"
@@ -250,12 +254,12 @@ from conftest import (
 
 # Verify that asyncio plugin is loaded
 def test_asyncio_plugin_loaded():
-    \"\"\"Simple test to verify asyncio plugin is loaded.\"\"\"
+    """Simple test to verify asyncio plugin is loaded."""
     assert 'pytest_asyncio' in sys.modules, "pytest-asyncio is not loaded"
 
 @pytest.fixture
 def create_test_app():
-    \"\"\"Create a test FastAPI app with specific routes.\"\"\"
+    """Create a test FastAPI app with specific routes."""
     def _create_app():
         app = FastAPI()
         # Setup routes for testing
@@ -264,20 +268,20 @@ def create_test_app():
 
 @pytest.fixture
 async def async_test_app():
-    \"\"\"Async fixture for creating a test FastAPI app.\"\"\"
+    """Async fixture for creating a test FastAPI app."""
     app = FastAPI()
     # Setup routes for testing
     return app
 
 @pytest.fixture
 async def async_test_client(async_test_app):
-    \"\"\"Async fixture providing a FastAPI test client.\"\"\"
+    """Async fixture providing a FastAPI test client."""
     return TestClient(async_test_app)
 
 # Mock implementation of health check for testing
 @pytest.fixture
 async def mock_health_check():
-    \"\"\"Mock implementation of health check to avoid client.host issues.\"\"\"
+    """Mock implementation of health check to avoid client.host issues."""
     async def _health_check(request):
         return {"status": "healthy"}
     return _health_check
@@ -328,7 +332,7 @@ from conftest import (
 
 @pytest.fixture
 def test_material():
-    \"\"\"Create a test material for testing.\"\"\"
+    """Create a test material for testing."""
     return Material(
         material_number="TEST001",
         name="Test Material",
@@ -340,7 +344,7 @@ def test_material():
 
 @pytest.fixture
 def setup_test_materials(material_service_fixture):
-    \"\"\"Set up various test materials with different statuses\"\"\"
+    """Set up various test materials with different statuses"""
     # Active materials of different types
     material_service_fixture.create_material(
         MaterialCreate(
@@ -364,7 +368,7 @@ def setup_test_materials(material_service_fixture):
 
 @pytest.fixture
 async def async_test_material():
-    \"\"\"Async fixture creating a test material for testing.\"\"\"
+    """Async fixture creating a test material for testing."""
     return Material(
         material_number="TEST001",
         name="Test Material",
@@ -376,7 +380,7 @@ async def async_test_material():
 
 @pytest.fixture
 async def async_setup_test_materials(async_material_service):
-    \"\"\"Async fixture setting up various test materials with different statuses\"\"\"
+    """Async fixture setting up various test materials with different statuses"""
     # Active materials of different types
     async_material_service.create_material(
         MaterialCreate(
@@ -437,24 +441,24 @@ from conftest import (
 
 @pytest.fixture
 def entity_collection():
-    \"\"\"Create an empty entity collection for testing.\"\"\"
+    """Create an empty entity collection for testing."""
     return EntityCollection(name="test-collection")
 
 @pytest.fixture
 def model_state_manager():
-    \"\"\"Create a dedicated state manager for model tests.\"\"\"
+    """Create a dedicated state manager for model tests."""
     manager = StateManager()
     manager.clear()
     return manager
 
 @pytest.fixture
 async def async_entity_collection():
-    \"\"\"Async fixture creating an empty entity collection for testing.\"\"\"
+    """Async fixture creating an empty entity collection for testing."""
     return EntityCollection(name="test-collection")
 
 @pytest.fixture
 async def async_model_state_manager():
-    \"\"\"Async fixture creating a dedicated state manager for model tests.\"\"\"
+    """Async fixture creating a dedicated state manager for model tests."""
     manager = StateManager()
     manager.clear()
     return manager
@@ -510,7 +514,7 @@ logger = logging.getLogger("monitoring_tests")
 
 @pytest.fixture
 def reset_monitoring_state():
-    \"\"\"Reset the monitoring state.\"\"\"
+    """Reset the monitoring state."""
     logger.info("Resetting monitoring state for test")
     # Clear monitoring-specific state
     state_manager.set("system_metrics", [])
@@ -520,7 +524,7 @@ def reset_monitoring_state():
 
 @pytest.fixture
 def sample_metrics():
-    \"\"\"Create sample metrics for testing.\"\"\"
+    """Create sample metrics for testing."""
     now = datetime.now()
     return [
         {
@@ -541,7 +545,7 @@ def sample_metrics():
 
 @pytest.fixture
 async def async_reset_monitoring_state():
-    \"\"\"Async fixture resetting the monitoring state.\"\"\"
+    """Async fixture resetting the monitoring state."""
     logger.info("Resetting monitoring state for async test")
     # Clear monitoring-specific state
     state_manager.set("system_metrics", [])
@@ -551,7 +555,7 @@ async def async_reset_monitoring_state():
 
 @pytest.fixture
 async def async_sample_metrics():
-    \"\"\"Async fixture creating sample metrics for testing.\"\"\"
+    """Async fixture creating sample metrics for testing."""
     now = datetime.now()
     return [
         {
@@ -620,7 +624,7 @@ from conftest import (
 
 @pytest.fixture
 def test_services(state_manager_fixture):
-    \"\"\"Set up test services with clean state.\"\"\"
+    """Set up test services with clean state."""
     # Reset all services to ensure clean state
     clear_service_registry()
     
@@ -646,7 +650,7 @@ def test_services(state_manager_fixture):
     
 @pytest.fixture
 async def async_test_services(async_state_manager):
-    \"\"\"Async fixture setting up test services with clean state.\"\"\"
+    """Async fixture setting up test services with clean state."""
     # Reset all services to ensure clean state
     clear_service_registry()
     
