@@ -18,6 +18,9 @@ from models.material import (
     Material, MaterialCreate, MaterialUpdate, MaterialStatus
 )
 from services.url_service import url_service
+from services import get_material_service, get_monitor_service
+from services.material_service import MaterialService
+from services.monitor_service import MonitorService
 from controllers import BaseController
 from controllers.material_common import (
     get_material_service_dependency,
@@ -35,8 +38,8 @@ from utils.error_utils import NotFoundError, ValidationError, BadRequestError
 
 async def list_materials(
     request: Request,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     List materials with optional filtering (UI endpoint).
@@ -49,6 +52,12 @@ async def list_materials(
     Returns:
         Template context dictionary
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service()
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service()
+        
     try:
         # Parse query parameters
         params = await BaseController.parse_query_params(request, MaterialFilterParams)
@@ -88,8 +97,8 @@ async def list_materials(
 async def get_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     Get material details (UI endpoint).
@@ -103,6 +112,12 @@ async def get_material(
     Returns:
         Template context dictionary or redirect response
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service()
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service()
+        
     try:
         # Get the material
         material = material_service.get_material(material_id)
@@ -122,7 +137,14 @@ async def get_material(
         }
         
         return context
-    except NotFoundError:
+    except NotFoundError as e:
+        # Log the not found error before redirecting
+        monitor_service.log_error(
+            error_type="not_found_error",
+            message=f"Material {material_id} not found in UI request",
+            component="material_controller",
+            context={"path": str(request.url), "material_id": material_id}
+        )
         return handle_material_not_found(material_id, request)
     except Exception as e:
         log_controller_error(monitor_service, e, request, "get_material", material_id)
@@ -130,8 +152,8 @@ async def get_material(
 
 async def create_material_form(
     request: Request,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service = Depends(get_material_service_dependency),
+    monitor_service = Depends(get_monitor_service_dependency)
 ):
     """
     Display the material creation form (UI endpoint).
@@ -144,6 +166,13 @@ async def create_material_form(
     Returns:
         Template context dictionary
     """
+    # Get actual service instances only if they're Depends objects (for non-test cases)
+    # For tests, we want to use the injected service
+    if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+        material_service = get_material_service()
+    if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+        monitor_service = get_monitor_service()
+        
     try:
         # Get options for form dropdowns
         material_types = get_material_type_options()
@@ -171,8 +200,8 @@ async def create_material_form(
 
 async def create_material(
     request: Request,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service = Depends(get_material_service_dependency),
+    monitor_service = Depends(get_monitor_service_dependency)
 ):
     """
     Create a new material (UI endpoint).
@@ -185,6 +214,13 @@ async def create_material(
     Returns:
         Redirect to the new material or back to the form with errors
     """
+    # Get actual service instances only if they're Depends objects (for non-test cases)
+    # For tests, we want to use the injected service
+    if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+        material_service = get_material_service()
+    if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+        monitor_service = get_monitor_service()
+        
     try:
         # Parse form data
         form_data = await request.form()
@@ -242,8 +278,8 @@ async def create_material(
 async def update_material_form(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service = Depends(get_material_service_dependency),
+    monitor_service = Depends(get_monitor_service_dependency)
 ):
     """
     Display the material update form (UI endpoint).
@@ -257,6 +293,13 @@ async def update_material_form(
     Returns:
         Template context dictionary or redirect response
     """
+    # Get actual service instances only if they're Depends objects (for non-test cases)
+    # For tests, we want to use the injected service
+    if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+        material_service = get_material_service()
+    if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+        monitor_service = get_monitor_service()
+        
     try:
         # Get the material
         material = material_service.get_material(material_id)
@@ -291,8 +334,8 @@ async def update_material_form(
 async def update_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service = Depends(get_material_service_dependency),
+    monitor_service = Depends(get_monitor_service_dependency)
 ):
     """
     Update an existing material (UI endpoint).
@@ -306,6 +349,13 @@ async def update_material(
     Returns:
         Redirect to the material or back to the form with errors
     """
+    # Get actual service instances only if they're Depends objects (for non-test cases)
+    # For tests, we want to use the injected service
+    if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+        material_service = get_material_service()
+    if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+        monitor_service = get_monitor_service()
+        
     try:
         # Parse form data
         form_data = await request.form()
@@ -376,8 +426,8 @@ async def update_material(
 async def deprecate_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service = Depends(get_material_service_dependency),
+    monitor_service = Depends(get_monitor_service_dependency)
 ):
     """
     Deprecate a material (UI endpoint).
@@ -391,6 +441,13 @@ async def deprecate_material(
     Returns:
         Redirect to the material or to the list with an error
     """
+    # Get actual service instances only if they're Depends objects (for non-test cases)
+    # For tests, we want to use the injected service
+    if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+        material_service = get_material_service()
+    if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+        monitor_service = get_monitor_service()
+        
     try:
         # Deprecate the material
         material = material_service.deprecate_material(material_id)

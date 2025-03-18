@@ -1,0 +1,37 @@
+# Rules for Working with the Mini Meta Harness Codebase
+
+## General Guidelines
+- Follow instructions precisely
+- Make minimal, targeted changes
+- Analyze code thoroughly before making changes
+- Get approval before making significant modifications
+
+## Handling Complex Problems
+- Use diagnostic tests to isolate and understand issues
+- Create experimental approaches in test files first
+- Validate solutions with tests before applying to production code
+- Document findings and approaches in test files
+
+## Import Issues
+- When fixing import problems, create diagnostic tests first
+- Test imports in isolation before changing production code
+- Use a test-driven approach to verify solutions work as expected
+- Document all import patterns that work in test files
+
+## Code Modifications
+- Make one change at a time
+- Test each change before proceeding to the next
+- Minimize changes to overall architecture
+- Preserve existing patterns and conventions
+
+## Testing
+- Run relevant tests after each change
+- Create specific test cases for regressions
+- Document test outcomes
+- Fix failing tests before proceeding
+
+## Troubleshooting
+- Use diagnostic logging in test environments
+- Isolate components for testing
+- Create minimal reproducible examples
+- Document root causes in comments 

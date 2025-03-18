@@ -328,3 +328,43 @@ class BaseController:
         get_service.__name__ = f"get_{service_getter.__name__}"
         
         return Depends(get_service)
+
+    @staticmethod
+    def handle_api_error(e: Exception) -> JSONResponse:
+        """
+        Handle various error types and return appropriate JSON responses.
+        
+        Args:
+            e: The exception to handle
+            
+        Returns:
+            Standardized error response
+        """
+        if isinstance(e, NotFoundError):
+            return BaseController.create_error_response(
+                message=str(e),
+                error_code="not_found",
+                details=getattr(e, 'details', {"material_id": str(e).split()[-1]}),
+                status_code=404
+            )
+        elif isinstance(e, ValidationError):
+            return BaseController.create_error_response(
+                message=e.message,
+                error_code="validation_error",
+                details=e.details,
+                status_code=400
+            )
+        elif isinstance(e, BadRequestError):
+            return BaseController.create_error_response(
+                message=str(e),
+                error_code="bad_request",
+                status_code=400
+            )
+        else:
+            # Log unexpected errors
+            logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+            return BaseController.create_error_response(
+                message="An unexpected error occurred",
+                error_code="server_error",
+                status_code=500
+            )

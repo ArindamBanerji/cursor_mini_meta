@@ -174,8 +174,10 @@ def mock_request():
 @pytest.fixture
 def mock_material_service():
     """Create a mock material service for testing."""
-    service = MagicMock()
+    from services.material_service import MaterialService
+    service = MagicMock(spec=MaterialService)
     service.get_material.return_value = TEST_MATERIAL
+    # Configure list_materials to accept any arguments and still return the test material
     service.list_materials.return_value = [TEST_MATERIAL]
     service.create_material.return_value = TEST_MATERIAL
     service.update_material.return_value = TEST_MATERIAL
@@ -185,7 +187,8 @@ def mock_material_service():
 @pytest.fixture
 def mock_monitor_service():
     """Create a mock monitor service for testing."""
-    service = MagicMock()
+    from services.monitor_service import MonitorService
+    service = MagicMock(spec=MonitorService)
     service.log_error = MagicMock()
     return service
 

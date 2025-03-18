@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, Tuple
 from types import ModuleType
 
 """Standard test file imports and setup.
@@ -25,61 +25,132 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def find_project_root(test_dir: Path) -> Optional[Path]:
-    """Find the project root directory.
-    
-    Args:
-        test_dir: The directory containing the test file
-        
-    Returns:
-        The project root directory or None if not found
+def find_project_root() -> Path:
     """
-    try:
-        # Try to find project root by looking for main.py or known directories
-        for parent in [test_dir] + list(test_dir.parents):
-            # Check for main.py as an indicator of project root
-            if (parent / "main.py").exists():
-                return parent
-            # Check for typical project structure indicators
-            if all((parent / d).exists() for d in ["services", "models", "controllers"]):
-                return parent
-        
-        # If we still don't have a project root, use parent of the tests-dest directory
-        for parent in test_dir.parents:
-            if parent.name == "tests-dest":
-                return parent.parent
-                
-        return None
-    except Exception as e:
-        logger.error(f"Error finding project root: {e}")
-        return None
-
-# Find project root dynamically
-test_file = Path(__file__).resolve()
-test_dir = test_file.parent
-project_root = find_project_root(test_dir)
-
-if project_root:
-    logger.info(f"Project root detected at: {project_root}")
+    Find the project root directory.
     
-    # Add project root to path if found
+    Returns:
+        Path to the project root directory.
+    """
+    # First try environment variable
+    project_root = os.environ.get("SAP_HARNESS_HOME")
+    if project_root:
+        logger.info(f"Project root found in environment: {project_root}")
+        return Path(project_root)
+    
+    # Otherwise, try to detect by traversing up from the current file
+    current_file = Path(__file__).resolve()
+    parent_dir = current_file.parent
+    
+    # If we're in tests-dest, the parent is the project root
+    if parent_dir.name == 'tests-dest':
+        project_root = parent_dir.parent
+    else:
+        # Otherwise, traverse up until we find a directory that looks like a project root
+        potential_root = parent_dir
+        while potential_root.name and not (
+            (potential_root / 'tests-dest').exists() or
+            (potential_root / 'services').exists() or
+            (potential_root / 'models').exists()
+        ):
+            potential_root = potential_root.parent
+            if not potential_root.name:  # Reached the root of the filesystem
+                break
+        
+        if potential_root.name:
+            project_root = potential_root
+        else:
+            # If no root found, use current directory's parent as fallback
+            project_root = parent_dir
+    
+    logger.info(f"Project root detected at: {project_root}")
+    return project_root
+
+def setup_test_paths() -> Tuple[Path, Path]:
+    """
+    Set up paths for testing.
+    
+    This function adds the project root and test directory to sys.path
+    to ensure imports work correctly during testing.
+    
+    Returns:
+        Tuple of (project_root, test_dir)
+    """
+    project_root = find_project_root()
+    test_dir = project_root / 'tests-dest'
+    
+    # Add to sys.path if not already there
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
-        logger.info(f"Added {project_root} to Python path")
-else:
-    logger.warning("Could not detect project root")
+    
+    if str(test_dir) not in sys.path:
+        sys.path.insert(0, str(test_dir))
+    
+    # Set essential environment variables
+    os.environ.setdefault("PROJECT_ROOT", str(project_root))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root))
+    os.environ.setdefault("SAP_HARNESS_CONFIG", str(project_root / "config"))
+    os.environ.setdefault("TEST_MODE", "true")
+    
+    logger.info(f"Set up paths: project_root={project_root}, test_dir={test_dir}")
+    return project_root, test_dir
 
-# Import the test_import_helper
+def set_env_variables() -> Dict[str, str]:
+    """
+    Set environment variables for testing.
+    
+    Returns:
+        Dictionary of environment variables that were set.
+    """
+    env_vars = {
+        "PROJECT_ROOT": os.environ.get("PROJECT_ROOT", ""),
+        "SAP_HARNESS_HOME": os.environ.get("SAP_HARNESS_HOME", ""),
+        "SAP_HARNESS_CONFIG": os.environ.get("SAP_HARNESS_CONFIG", ""),
+        "TEST_MODE": os.environ.get("TEST_MODE", "true")
+    }
+    
+    logger.info(f"Set environment variables: {env_vars}")
+    return env_vars
+
+def safe_import(module_name: str) -> Optional[Any]:
+    """
+    Safely import a module without raising exceptions.
+    
+    Args:
+        module_name: Name of the module to import
+        
+    Returns:
+        Imported module or None if import failed
+    """
+    try:
+        module = __import__(module_name, fromlist=[''])
+        return module
+    except Exception as e:
+        logger.warning(f"Optional import failed: {str(e)}")
+        return None
+
+# Set up paths when module is imported
 try:
-    from test_import_helper import setup_test_paths, setup_test_env_vars
-    setup_test_paths()
-    logger.info("Successfully initialized test paths from test_import_helper")
-except ImportError as e:
-    # Fall back if test_import_helper is not available
-    if str(test_dir.parent) not in sys.path:
-        sys.path.insert(0, str(test_dir.parent))
-    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
-    logger.warning(f"Failed to import test_import_helper: {e}. Using fallback configuration.")
+    project_root, test_dir = setup_test_paths()
+except Exception as e:
+    logger.warning(f"Failed to import test_import_helper: {str(e)}. Using fallback configuration.")
+    project_root = Path(os.getcwd())
+    test_dir = project_root / 'tests-dest' if (project_root / 'tests-dest').exists() else project_root
+
+# Try to import test fixtures for convenience
+try:
+    # Use safe import to avoid circular dependencies
+    conftest = safe_import('conftest')
+    if conftest:
+        test_services = getattr(conftest, 'test_services', None)
+        state_manager_fixture = getattr(conftest, 'state_manager_fixture', None)
+    else:
+        test_services = None
+        state_manager_fixture = None
+except Exception as e:
+    logger.warning(f"Failed to import conftest fixtures: {str(e)}")
+    test_services = None
+    state_manager_fixture = None
 
 # Common test imports
 import pytest

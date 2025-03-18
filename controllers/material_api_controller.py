@@ -26,14 +26,17 @@ from controllers.material_common import (
     log_controller_error,
     MaterialFilterParams
 )
+from services import get_material_service, get_monitor_service
+from services.material_service import MaterialService
+from services.monitor_service import MonitorService
 from utils.error_utils import NotFoundError, ValidationError, BadRequestError
 
 # API Controller Methods
 
 async def api_list_materials(
     request: Request,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     List materials with optional filtering (API endpoint).
@@ -46,52 +49,53 @@ async def api_list_materials(
     Returns:
         JSON response with materials data
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service_dependency()
+        if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+            material_service = get_material_service()
+            
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service_dependency()
+        if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+            monitor_service = get_monitor_service()
+        
     try:
         # Parse query parameters
         params = await BaseController.parse_query_params(request, MaterialFilterParams)
         
-        # Get materials with filtering
+        # Get materials with filtering - only pass parameters supported by the service
         materials = material_service.list_materials(
             status=params.status,
             type=params.type,
             search_term=params.search
         )
         
-        # Build filters dict for response
-        filters = {
+        # Apply pagination in memory if needed
+        if params.limit is not None or params.offset is not None:
+            offset = params.offset or 0
+            limit = params.limit or len(materials)
+            materials = materials[offset:offset + limit]
+        
+        # Format the response
+        response_data = format_materials_list(materials, {
             "search": params.search,
             "type": params.type.value if params.type else None,
-            "status": params.status.value if params.status else None
-        }
+            "status": params.status.value if params.status else None,
+            "limit": params.limit,
+            "offset": params.offset
+        })
         
-        # Format and return response
-        formatted_materials = format_materials_list(materials, filters)
-        return BaseController.create_success_response(
-            data=formatted_materials,
-            message="Materials retrieved successfully"
-        )
-    except ValidationError as e:
-        monitor_service.log_error(
-            error_type="validation_error",
-            message=f"Invalid query parameters in API list materials: {str(e)}",
-            component="material_api_controller.api_list_materials",
-            context={"path": str(request.url), "query_params": str(request.query_params)}
-        )
-        return BaseController.create_error_response(
-            message=f"Invalid query parameters: {e.message}",
-            error_code="validation_error",
-            details=e.details,
-            status_code=400
-        )
+        return JSONResponse(content=response_data)
     except Exception as e:
         log_controller_error(monitor_service, e, request, "api_list_materials")
-        raise
+        return BaseController.handle_api_error(e)
 
 async def api_get_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     Get material details (API endpoint).
@@ -105,39 +109,42 @@ async def api_get_material(
     Returns:
         JSON response with material data
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service_dependency()
+        if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+            material_service = get_material_service()
+            
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service_dependency()
+        if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+            monitor_service = get_monitor_service()
+        
     try:
         # Get the material
         material = material_service.get_material(material_id)
         
-        # Format material for response
-        material_data = format_material_for_response(material)
+        # Format the response
+        response_data = format_material_for_response(material)
         
-        # Build API response
-        return BaseController.create_success_response(
-            data={"material": material_data},
-            message=f"Material {material_id} retrieved successfully"
-        )
+        return JSONResponse(content=response_data)
     except NotFoundError as e:
+        # Log the not found error
         monitor_service.log_error(
             error_type="not_found_error",
             message=f"Material {material_id} not found in API request",
-            component="material_api_controller.api_get_material",
+            component="material_api_controller",
             context={"path": str(request.url), "material_id": material_id}
         )
-        return BaseController.create_error_response(
-            message=f"Material {material_id} not found",
-            error_code="not_found",
-            details={"material_id": material_id},
-            status_code=404
-        )
+        return BaseController.handle_api_error(e)
     except Exception as e:
         log_controller_error(monitor_service, e, request, "api_get_material", material_id)
-        raise
+        return BaseController.handle_api_error(e)
 
 async def api_create_material(
     request: Request,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     Create a new material (API endpoint).
@@ -150,8 +157,19 @@ async def api_create_material(
     Returns:
         JSON response with created material data
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service_dependency()
+        if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+            material_service = get_material_service()
+            
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service_dependency()
+        if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+            monitor_service = get_monitor_service()
+        
     try:
-        # Parse request body
+        # Parse request body using the helper method
         material_data = await BaseController.parse_json_body(request, MaterialCreate)
         
         # Create the material
@@ -166,40 +184,15 @@ async def api_create_material(
             message="Material created successfully",
             status_code=201  # Created
         )
-    except ValidationError as e:
-        monitor_service.log_error(
-            error_type="validation_error",
-            message=f"Invalid material data in API create: {str(e)}",
-            component="material_api_controller.api_create_material",
-            context={"path": str(request.url), "details": e.details}
-        )
-        return BaseController.create_error_response(
-            message=f"Invalid material data: {e.message}",
-            error_code="validation_error",
-            details=e.details,
-            status_code=400
-        )
-    except BadRequestError as e:
-        monitor_service.log_error(
-            error_type="bad_request",
-            message=f"Bad request in API create material: {str(e)}",
-            component="material_api_controller.api_create_material",
-            context={"path": str(request.url)}
-        )
-        return BaseController.create_error_response(
-            message=str(e),
-            error_code="bad_request",
-            status_code=400
-        )
     except Exception as e:
         log_controller_error(monitor_service, e, request, "api_create_material")
-        raise
+        return BaseController.handle_api_error(e)
 
 async def api_update_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
     Update an existing material (API endpoint).
@@ -213,8 +206,19 @@ async def api_update_material(
     Returns:
         JSON response with updated material data
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service_dependency()
+        if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+            material_service = get_material_service()
+            
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service_dependency()
+        if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+            monitor_service = get_monitor_service()
+        
     try:
-        # Parse request body
+        # Parse request body using the helper method
         update_data = await BaseController.parse_json_body(request, MaterialUpdate)
         
         # Update the material
@@ -229,55 +233,26 @@ async def api_update_material(
             message=f"Material {material_id} updated successfully"
         )
     except NotFoundError as e:
+        # Log the not found error
         monitor_service.log_error(
             error_type="not_found_error",
             message=f"Material {material_id} not found in API update request",
-            component="material_api_controller.api_update_material",
+            component="material_api_controller",
             context={"path": str(request.url), "material_id": material_id}
         )
-        return BaseController.create_error_response(
-            message=f"Material {material_id} not found",
-            error_code="not_found",
-            details={"material_id": material_id},
-            status_code=404
-        )
-    except ValidationError as e:
-        monitor_service.log_error(
-            error_type="validation_error",
-            message=f"Invalid update data in API update material: {str(e)}",
-            component="material_api_controller.api_update_material",
-            context={"path": str(request.url), "material_id": material_id}
-        )
-        return BaseController.create_error_response(
-            message=f"Invalid update data: {e.message}",
-            error_code="validation_error",
-            details=e.details,
-            status_code=400
-        )
-    except BadRequestError as e:
-        monitor_service.log_error(
-            error_type="bad_request",
-            message=f"Bad request in API update material: {str(e)}",
-            component="material_api_controller.api_update_material",
-            context={"path": str(request.url), "material_id": material_id}
-        )
-        return BaseController.create_error_response(
-            message=str(e),
-            error_code="bad_request",
-            status_code=400
-        )
+        return BaseController.handle_api_error(e)
     except Exception as e:
         log_controller_error(monitor_service, e, request, "api_update_material", material_id)
-        raise
+        return BaseController.handle_api_error(e)
 
 async def api_deprecate_material(
     request: Request,
     material_id: str,
-    material_service = get_material_service_dependency(),
-    monitor_service = get_monitor_service_dependency()
+    material_service=None,
+    monitor_service=None
 ):
     """
-    Deprecate a material (API endpoint).
+    Deprecate an existing material (API endpoint).
     
     Args:
         request: FastAPI request
@@ -286,8 +261,19 @@ async def api_deprecate_material(
         monitor_service: Injected monitor service
         
     Returns:
-        JSON response with deprecation result
+        JSON response with deprecation status
     """
+    # Get services if not provided (for testing)
+    if material_service is None or (not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency')):
+        material_service = get_material_service_dependency()
+        if not isinstance(material_service, MaterialService) and hasattr(material_service, 'dependency'):
+            material_service = get_material_service()
+            
+    if monitor_service is None or (not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency')):
+        monitor_service = get_monitor_service_dependency()
+        if not isinstance(monitor_service, MonitorService) and hasattr(monitor_service, 'dependency'):
+            monitor_service = get_monitor_service()
+        
     try:
         # Deprecate the material
         material = material_service.deprecate_material(material_id)
@@ -305,31 +291,14 @@ async def api_deprecate_material(
             message=f"Material {material_id} has been deprecated"
         )
     except NotFoundError as e:
+        # Log the not found error
         monitor_service.log_error(
             error_type="not_found_error",
             message=f"Material {material_id} not found in API deprecate request",
-            component="material_api_controller.api_deprecate_material",
+            component="material_api_controller",
             context={"path": str(request.url), "material_id": material_id}
         )
-        return BaseController.create_error_response(
-            message=f"Material {material_id} not found",
-            error_code="not_found",
-            details={"material_id": material_id},
-            status_code=404
-        )
-    except ValidationError as e:
-        monitor_service.log_error(
-            error_type="validation_error",
-            message=f"Cannot deprecate material {material_id}: {str(e)}",
-            component="material_api_controller.api_deprecate_material",
-            context={"path": str(request.url), "material_id": material_id}
-        )
-        return BaseController.create_error_response(
-            message=f"Cannot deprecate material: {e.message}",
-            error_code="validation_error",
-            details=e.details,
-            status_code=400
-        )
+        return BaseController.handle_api_error(e)
     except Exception as e:
         log_controller_error(monitor_service, e, request, "api_deprecate_material", material_id)
-        raise
+        return BaseController.handle_api_error(e)

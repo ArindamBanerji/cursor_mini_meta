@@ -787,3 +787,28 @@ class P2PService:
 
 # Create a singleton instance
 p2p_service = P2PService()
+
+def get_p2p_service(state_manager_instance=None, material_service_instance=None):
+    """
+    Factory function to get or create the P2P service instance.
+    
+    Args:
+        state_manager_instance: Optional state manager to use instead of the default
+        material_service_instance: Optional material service to use instead of the default
+    
+    Returns:
+        P2PService: A P2P service instance
+    """
+    # If no custom dependencies are provided, return the singleton
+    if state_manager_instance is None and material_service_instance is None:
+        global p2p_service
+        return p2p_service
+    
+    # Otherwise, create a new instance with the provided dependencies
+    return P2PService(
+        state_manager_instance=state_manager_instance,
+        material_service_instance=material_service_instance
+    )
+
+# Export both the class, the getter, and the instance
+__all__ = ["P2PService", "p2p_service", "get_p2p_service"]

@@ -198,12 +198,23 @@ monitor_service = MonitorService()
 logger.info(f"Monitor service singleton created with state_manager={id(monitor_service.state_manager)}")
 
 # Add the get_monitor_service function that's missing and causing the import error
-def get_monitor_service():
+def get_monitor_service(state_manager_instance=None):
     """
-    Get the singleton instance of the monitor service.
+    Get the singleton instance of the monitor service or create a new instance with the given state manager.
     
+    Args:
+        state_manager_instance: Optional state manager to use instead of the default
+        
     Returns:
-        The global monitor_service instance
+        The monitor service instance
     """
-    global monitor_service
-    return monitor_service
+    # If no custom state manager is provided, return the singleton
+    if state_manager_instance is None:
+        global monitor_service
+        return monitor_service
+    
+    # Otherwise, create a new instance with the provided state manager
+    return MonitorService(state_manager_instance=state_manager_instance)
+
+# Export the class, singleton instance, and getter function
+__all__ = ["MonitorService", "monitor_service", "get_monitor_service"]

@@ -140,3 +140,16 @@ class StateManager:
 
 # Create a singleton instance
 state_manager = StateManager()
+
+def get_state_manager():
+    """
+    Factory function to get the state manager singleton instance.
+    
+    Returns:
+        StateManager: The singleton state manager instance
+    """
+    global state_manager
+    return state_manager
+
+# Export both the class, the getter, and the instance
+__all__ = ["StateManager", "state_manager", "get_state_manager"]

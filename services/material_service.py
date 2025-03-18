@@ -652,16 +652,33 @@ class MaterialService:
 # Singleton instance
 _material_service = None
 
-def get_material_service():
+def get_material_service(state_manager_instance=None, monitor_service_instance=None):
     """
     Factory function to get or create the material service instance.
-    Uses the singleton pattern to ensure only one instance exists.
+    
+    Args:
+        state_manager_instance: Optional state manager to use instead of the default
+        monitor_service_instance: Optional monitor service to use instead of the default
     
     Returns:
-        MaterialService: The singleton material service instance
+        MaterialService: A material service instance
     """
-    global _material_service
-    if _material_service is None:
-        from .monitor_service import get_monitor_service
-        _material_service = MaterialService(monitor_service=get_monitor_service())
-    return _material_service
+    # If no custom dependencies are provided, return the singleton
+    if state_manager_instance is None and monitor_service_instance is None:
+        global _material_service
+        if _material_service is None:
+            from .monitor_service import get_monitor_service
+            _material_service = MaterialService(monitor_service=get_monitor_service())
+        return _material_service
+    
+    # Otherwise, create a new instance with the provided dependencies
+    return MaterialService(
+        state_manager_instance=state_manager_instance,
+        monitor_service=monitor_service_instance
+    )
+
+# Create a public singleton instance
+material_service = get_material_service()
+
+# Update the __all__ list to export both the getter and the instance
+__all__ = ["MaterialService", "get_material_service", "material_service"]

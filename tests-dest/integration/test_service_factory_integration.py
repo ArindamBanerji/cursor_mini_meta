@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
 from types import ModuleType
+from datetime import datetime
 
 """Standard test file imports and setup.
 
@@ -94,7 +95,7 @@ try:
     from services.template_service import TemplateService
     from services.p2p_service import P2PService
     from models.base_model import BaseModel
-    from models.material import Material
+    from models.material import Material, MaterialCreate, MaterialType, MaterialStatus
     from models.requisition import Requisition
     from fastapi import FastAPI, HTTPException
     logger.info("Successfully imported test fixtures and services")
@@ -213,17 +214,33 @@ class TestServiceFactoryIntegration:
         # Create a custom state manager
         custom_state = StateManager()
         
-        # Get a P2P service with just the custom state
-        p2p_service = get_p2p_service(custom_state)
+        # Set a test value in the custom state
+        test_key = "test_p2p_with_state"
+        test_value = {"initialized": True, "timestamp": datetime.now().isoformat()}
+        custom_state.set(test_key, test_value)
         
-        # Verify it's using our custom state manager
-        assert p2p_service.state_manager is custom_state
+        # Create a material service with the same state
+        custom_material_service = get_material_service(custom_state)
         
-        # Verify it's NOT using the default material service
-        assert p2p_service.material_service is not get_material_service()
+        # Get a P2P service with the custom state and material service
+        p2p_service = get_p2p_service(custom_state, custom_material_service)
         
-        # Verify the material service is using the same custom state
-        assert p2p_service.material_service.state_manager is custom_state
+        # Verify it's using our custom state manager by checking if it can access our test value
+        assert p2p_service.state_manager.get(test_key) == test_value
+        
+        # Verify the material service can access the same state
+        assert p2p_service.material_service.state_manager.get(test_key) == test_value
+        
+        # Verify the material service is our custom instance
+        assert p2p_service.material_service is custom_material_service
+        
+        # Add another test value through the P2P service's state manager
+        p2p_key = "test_p2p_set" 
+        p2p_value = {"service": "p2p", "test": True}
+        p2p_service.state_manager.set(p2p_key, p2p_value)
+        
+        # Verify we can access it through the material service's state manager too
+        assert custom_material_service.state_manager.get(p2p_key) == p2p_value
     
     def test_get_p2p_service_with_material_only(self):
         """Test getting a P2P service with just a custom material service"""

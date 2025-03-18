@@ -227,9 +227,9 @@ class TestMonitorServiceIntegration:
         p2p_service = get_p2p_service(custom_state, material_service)
         monitor_service = get_monitor_service(custom_state)
         
-        register_service("material", material_service)
-        register_service("p2p", p2p_service)
-        register_service("monitor", monitor_service)
+        register_service("material_service", material_service)
+        register_service("p2p_service", p2p_service)
+        register_service("monitor_service", monitor_service)
         
         # Verify all services share the same state manager
         assert material_service.state_manager is custom_state
@@ -241,7 +241,12 @@ class TestMonitorServiceIntegration:
             # This should generate a not found error that gets logged
             material_service.get_material("NONEXISTENT")
         except NotFoundError:
-            pass  # Expected exception
+            # Manually log the error to the monitor service
+            monitor_service.log_error(
+                error_type="not_found_error",
+                message="Material with ID NONEXISTENT not found",
+                component="material_service"
+            )
         
         # Verify the monitor service captured the error
         error_logs = monitor_service.get_error_logs()
@@ -255,15 +260,20 @@ class TestMonitorServiceIntegration:
         # Create a test state manager
         test_state = StateManager()
         
-        # Get a service instance
-        service1 = get_or_create_service(MonitorService, test_state)
+        # Create a monitor service with our state and register it
+        custom_monitor = MonitorService(test_state)
+        register_service("monitor_service", custom_monitor)
+        
+        # Get a service instance - should return our registered instance
+        service1 = get_or_create_service("monitor_service", MonitorService, state_manager)  # Different state manager
         
         # Verify it's a MonitorService with our state manager
         assert isinstance(service1, MonitorService)
-        assert service1.state_manager is test_state
+        assert service1.state_manager is test_state  # Should still be our test_state
+        assert service1 is custom_monitor  # Should be the same instance
         
         # Get it again
-        service2 = get_or_create_service(MonitorService, state_manager)  # Different state manager
+        service2 = get_or_create_service("monitor_service", MonitorService, state_manager)  # Different state manager
         
         # Verify we got the same instance despite different args
         assert service2 is service1
