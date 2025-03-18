@@ -144,9 +144,47 @@ def setup_test_paths() -> str:
     test_dir = os.path.dirname(os.path.abspath(__file__))
     if test_dir not in sys.path:
         sys.path.insert(0, test_dir)
+    
+    # Fix the 'models.conftest' namespace issue
+    fix_namespace_conflicts()
         
     logger.info(f"Set up paths: project_root={project_root}, test_dir={test_dir}")
     return project_root
+
+def fix_namespace_conflicts() -> None:
+    """Fix namespace conflicts in test directories.
+    
+    This function handles the issue with 'models.conftest' by adding
+    the conftest module to sys.modules under a different name.
+    """
+    try:
+        # Check if we're in a subdirectory that might have namespace conflicts
+        current_dir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+        
+        # If we're importing from models directory, make sure it doesn't conflict
+        if 'models.conftest' in sys.modules:
+            # Already registered - nothing to do
+            return
+            
+        conftest_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conftest.py')
+        if os.path.exists(conftest_path):
+            # Create a module for the root conftest to avoid conflicts
+            import importlib.util
+            import types
+            
+            # Load the root conftest module
+            spec = importlib.util.spec_from_file_location("root_conftest", conftest_path)
+            root_conftest = importlib.util.module_from_spec(spec)
+            sys.modules["root_conftest"] = root_conftest
+            spec.loader.exec_module(root_conftest)
+            
+            # If in models directory, create a special module to avoid the models.conftest conflict
+            if current_dir == 'models':
+                sys.modules['model_tests.conftest'] = root_conftest
+                sys.modules['models.conftest'] = types.ModuleType('models.conftest')
+                logger.info("Fixed namespace conflict for models.conftest")
+    except Exception as e:
+        logger.warning(f"Error fixing namespace conflicts: {e}")
 
 def setup_test_env_vars(monkeypatch: pytest.MonkeyPatch) -> str:
     """Set up environment variables for tests.

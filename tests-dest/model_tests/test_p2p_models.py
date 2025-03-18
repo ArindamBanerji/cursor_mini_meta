@@ -1,0 +1,558 @@
+# BEGIN_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
+# Critical imports that must be preserved
+import os
+import sys
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+from types import ModuleType
+
+"""Standard test file imports and setup.
+
+This snippet is automatically added to test files by SnippetForTests.py.
+It provides:
+1. Dynamic project root detection and path setup
+2. Environment variable configuration
+3. Common test imports and fixtures
+4. Service initialization support
+5. Logging configuration
+"""
+
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def find_project_root(test_dir: Path) -> Optional[Path]:
+    """Find the project root directory.
+    
+    Args:
+        test_dir: The directory containing the test file
+        
+    Returns:
+        The project root directory or None if not found
+    """
+    try:
+        # Try to find project root by looking for main.py or known directories
+        for parent in [test_dir] + list(test_dir.parents):
+            # Check for main.py as an indicator of project root
+            if (parent / "main.py").exists():
+                return parent
+            # Check for typical project structure indicators
+            if all((parent / d).exists() for d in ["services", "models", "controllers"]):
+                return parent
+        
+        # If we still don't have a project root, use parent of the tests-dest directory
+        for parent in test_dir.parents:
+            if parent.name == "tests-dest":
+                return parent.parent
+                
+        return None
+    except Exception as e:
+        logger.error(f"Error finding project root: {e}")
+        return None
+
+# Find project root dynamically
+test_file = Path(__file__).resolve()
+test_dir = test_file.parent
+project_root = find_project_root(test_dir)
+
+if project_root:
+    logger.info(f"Project root detected at: {project_root}")
+    
+    # Add project root to path if found
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+        logger.info(f"Added {project_root} to Python path")
+else:
+    logger.warning("Could not detect project root")
+
+# Import the test_import_helper
+try:
+    from test_import_helper import setup_test_paths, setup_test_env_vars
+    setup_test_paths()
+    logger.info("Successfully initialized test paths from test_import_helper")
+except ImportError as e:
+    # Fall back if test_import_helper is not available
+    if str(test_dir.parent) not in sys.path:
+        sys.path.insert(0, str(test_dir.parent))
+    os.environ.setdefault("SAP_HARNESS_HOME", str(project_root) if project_root else "")
+    logger.warning(f"Failed to import test_import_helper: {e}. Using fallback configuration.")
+
+# Common test imports
+import pytest
+from unittest.mock import MagicMock, AsyncMock, patch
+from fastapi.testclient import TestClient
+
+# Import common fixtures and services
+try:
+    from conftest import test_services
+    from services.base_service import BaseService
+    from services.monitor_service import MonitorService
+    from services.template_service import TemplateService
+    from services.p2p_service import P2PService
+    from models.base_model import BaseModel
+    from models.material import Material
+    from models.requisition import Requisition
+    from fastapi import FastAPI, HTTPException
+    logger.info("Successfully imported test fixtures and services")
+except ImportError as e:
+    # Log import error but continue - not all tests need all imports
+    logger.warning(f"Optional import failed: {e}")
+    logger.debug("Stack trace:", exc_info=True)
+
+@pytest.fixture(autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment for each test."""
+    setup_test_env_vars(monkeypatch)
+    logger.info("Test environment initialized")
+    yield
+    logger.info("Test environment cleaned up")
+# END_SNIPPET_INSERTION - DO NOT MODIFY THIS LINE
+
+# tests-dest/models/test_p2p_models.py
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+import pytest
+from datetime import datetime, date
+from pydantic import ValidationError as PydanticValidationError
+from models.p2p import (
+    DocumentStatus, ProcurementType, DocumentItemStatus,
+    DocumentItem, RequisitionItem, OrderItem,
+    RequisitionCreate, OrderCreate,
+    RequisitionUpdate, OrderUpdate,
+    Requisition, Order, P2PDataLayer
+)
+from models.common import EntityCollection
+from services.state_manager import StateManager
+
+class TestDocumentItemModels:
+    def test_requisition_item_create(self):
+        """Test creating a requisition item"""
+        req_item = RequisitionItem(
+            item_number=1,
+            description="Test Item",
+            quantity=10,
+            unit="EA",
+            price=100.0
+        )
+        
+        assert req_item.item_number == 1
+        assert req_item.description == "Test Item"
+        assert req_item.quantity == 10
+        assert req_item.unit == "EA"
+        assert req_item.price == 100.0
+        assert req_item.currency == "USD"
+        assert req_item.status == DocumentItemStatus.OPEN
+        assert req_item.assigned_to_order is None
+        
+        # Test value property
+        assert req_item.value == 1000.0
+    
+    def test_order_item_create(self):
+        """Test creating an order item"""
+        order_item = OrderItem(
+            item_number=1,
+            description="Test Item",
+            quantity=10,
+            unit="EA",
+            price=100.0,
+            requisition_reference="PR123",
+            requisition_item=1
+        )
+        
+        assert order_item.item_number == 1
+        assert order_item.description == "Test Item"
+        assert order_item.quantity == 10
+        assert order_item.unit == "EA"
+        assert order_item.price == 100.0
+        assert order_item.currency == "USD"
+        assert order_item.status == DocumentItemStatus.OPEN
+        assert order_item.requisition_reference == "PR123"
+        assert order_item.requisition_item == 1
+        assert order_item.received_quantity == 0
+    
+    def test_order_item_received_quantity_validation(self):
+        """Test validation of received quantity in order item"""
+        # Valid: received quantity <= ordered quantity
+        valid_item = OrderItem(
+            item_number=1,
+            description="Test Item",
+            quantity=10,
+            unit="EA",
+            price=100.0,
+            received_quantity=5.0
+        )
+        assert valid_item.received_quantity == 5.0
+        
+        # Invalid: received quantity > ordered quantity
+        with pytest.raises(ValueError):
+            OrderItem(
+                item_number=1,
+                description="Test Item",
+                quantity=10,
+                unit="EA",
+                price=100.0,
+                received_quantity=15.0
+            )
+
+class TestDocumentCreateModels:
+    def test_requisition_create_minimal(self):
+        """Test creating a requisition with minimal fields"""
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        req_create = RequisitionCreate(
+            description="Test Requisition",
+            requester="Test User",
+            items=items
+        )
+        
+        assert req_create.description == "Test Requisition"
+        assert req_create.requester == "Test User"
+        assert req_create.document_number is None
+        assert req_create.type == ProcurementType.STANDARD
+        assert req_create.urgent is False
+        assert len(req_create.items) == 1
+    
+    def test_requisition_create_full(self):
+        """Test creating a requisition with all fields"""
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            ),
+            RequisitionItem(
+                item_number=2,
+                description="Item 2",
+                quantity=5,
+                unit="KG",
+                price=50.0
+            )
+        ]
+        
+        req_create = RequisitionCreate(
+            document_number="PR123",
+            description="Test Requisition",
+            requester="Test User",
+            department="IT",
+            type=ProcurementType.SERVICE,
+            notes="Test notes",
+            urgent=True,
+            items=items
+        )
+        
+        assert req_create.document_number == "PR123"
+        assert req_create.description == "Test Requisition"
+        assert req_create.requester == "Test User"
+        assert req_create.department == "IT"
+        assert req_create.type == ProcurementType.SERVICE
+        assert req_create.notes == "Test notes"
+        assert req_create.urgent is True
+        assert len(req_create.items) == 2
+    
+    def test_order_create(self):
+        """Test creating an order"""
+        items = [
+            OrderItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        order_create = OrderCreate(
+            description="Test Order",
+            requester="Test User",
+            vendor="Test Vendor",
+            items=items
+        )
+        
+        assert order_create.description == "Test Order"
+        assert order_create.requester == "Test User"
+        assert order_create.vendor == "Test Vendor"
+        assert order_create.document_number is None
+        assert order_create.type == ProcurementType.STANDARD
+        assert order_create.urgent is False
+        assert len(order_create.items) == 1
+
+class TestDocumentModels:
+    def test_requisition_model(self):
+        """Test the Requisition model"""
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            ),
+            RequisitionItem(
+                item_number=2,
+                description="Item 2",
+                quantity=5,
+                unit="KG",
+                price=50.0
+            )
+        ]
+        
+        requisition = Requisition(
+            id="PR123",
+            document_number="PR123",
+            description="Test Requisition",
+            requester="Test User",
+            department="IT",
+            items=items,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        
+        assert requisition.id == "PR123"
+        assert requisition.document_number == "PR123"
+        assert requisition.description == "Test Requisition"
+        assert requisition.requester == "Test User"
+        assert requisition.department == "IT"
+        assert requisition.status == DocumentStatus.DRAFT
+        assert len(requisition.items) == 2
+        
+        # Test total_value property
+        assert requisition.total_value == 1250.0  # 10*100 + 5*50
+    
+    def test_order_model(self):
+        """Test the Order model"""
+        items = [
+            OrderItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        order = Order(
+            id="PO123",
+            document_number="PO123",
+            description="Test Order",
+            requester="Test User",
+            vendor="Test Vendor",
+            items=items,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        
+        assert order.id == "PO123"
+        assert order.document_number == "PO123"
+        assert order.description == "Test Order"
+        assert order.requester == "Test User"
+        assert order.vendor == "Test Vendor"
+        assert order.status == DocumentStatus.DRAFT
+        assert len(order.items) == 1
+        assert order.total_value == 1000.0
+
+class TestP2PDataLayer:
+    def setup_method(self):
+        """Set up a fresh state manager and data layer for each test"""
+        self.state_manager = StateManager()
+        self.data_layer = P2PDataLayer(self.state_manager)
+    
+    def test_create_requisition(self):
+        """Test creating a requisition through the data layer"""
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        create_data = RequisitionCreate(
+            document_number="PR001",
+            description="Test Requisition",
+            requester="Test User",
+            items=items
+        )
+        
+        requisition = self.data_layer.create_requisition(create_data)
+        
+        assert requisition.document_number == "PR001"
+        assert requisition.description == "Test Requisition"
+        assert requisition.requester == "Test User"
+        assert len(requisition.items) == 1
+        
+        # Check it was added to state
+        collection = self.state_manager.get_model(self.data_layer.requisitions_key, EntityCollection)
+        assert collection is not None
+        assert collection.count() == 1
+        assert collection.get("PR001") is not None
+    
+    def test_create_order(self):
+        """Test creating an order through the data layer"""
+        items = [
+            OrderItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        create_data = OrderCreate(
+            document_number="PO001",
+            description="Test Order",
+            requester="Test User",
+            vendor="Test Vendor",
+            items=items
+        )
+        
+        order = self.data_layer.create_order(create_data)
+        
+        assert order.document_number == "PO001"
+        assert order.description == "Test Order"
+        assert order.requester == "Test User"
+        assert order.vendor == "Test Vendor"
+        assert len(order.items) == 1
+        
+        # Check it was added to state
+        collection = self.state_manager.get_model(self.data_layer.orders_key, EntityCollection)
+        assert collection is not None
+        assert collection.count() == 1
+        assert collection.get("PO001") is not None
+    
+    def test_get_requisition(self):
+        """Test getting a requisition by ID"""
+        # Create a requisition first
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        create_data = RequisitionCreate(
+            document_number="PR001",
+            description="Test Requisition",
+            requester="Test User",
+            items=items
+        )
+        
+        self.data_layer.create_requisition(create_data)
+        
+        # Get it back
+        requisition = self.data_layer.get_requisition("PR001")
+        
+        assert requisition is not None
+        assert requisition.document_number == "PR001"
+        assert requisition.description == "Test Requisition"
+        assert len(requisition.items) == 1
+    
+    def test_status_transitions(self):
+        """Test document status transitions"""
+        # Create a requisition
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        create_data = RequisitionCreate(
+            document_number="PR001",
+            description="Test Requisition",
+            requester="Test User",
+            items=items
+        )
+        
+        requisition = self.data_layer.create_requisition(create_data)
+        assert requisition.status == DocumentStatus.DRAFT
+        
+        # Submit the requisition
+        update_data = RequisitionUpdate(status=DocumentStatus.SUBMITTED)
+        updated_req = self.data_layer.update_requisition("PR001", update_data)
+        assert updated_req.status == DocumentStatus.SUBMITTED
+        
+        # Try to skip to ORDERED (should fail)
+        with pytest.raises(Exception):
+            update_data = RequisitionUpdate(status=DocumentStatus.ORDERED)
+            self.data_layer.update_requisition("PR001", update_data)
+        
+        # Approve properly
+        update_data = RequisitionUpdate(status=DocumentStatus.APPROVED)
+        updated_req = self.data_layer.update_requisition("PR001", update_data)
+        assert updated_req.status == DocumentStatus.APPROVED
+    
+    def test_create_order_from_requisition(self):
+        """Test creating an order from a requisition"""
+        # Create a requisition first
+        items = [
+            RequisitionItem(
+                item_number=1,
+                description="Item 1",
+                quantity=10,
+                unit="EA",
+                price=100.0
+            )
+        ]
+        
+        req_data = RequisitionCreate(
+            document_number="PR001",
+            description="Test Requisition",
+            requester="Test User",
+            items=items
+        )
+        
+        requisition = self.data_layer.create_requisition(req_data)
+        
+        # Approve the requisition
+        update_data = RequisitionUpdate(status=DocumentStatus.SUBMITTED)
+        self.data_layer.update_requisition("PR001", update_data)
+        update_data = RequisitionUpdate(status=DocumentStatus.APPROVED)
+        self.data_layer.update_requisition("PR001", update_data)
+        
+        # Create order from requisition
+        order = self.data_layer.create_order_from_requisition(
+            requisition_number="PR001",
+            vendor="Test Vendor",
+            payment_terms="Net 30"
+        )
+        
+        # Check order
+        assert order.document_number is not None
+        assert order.document_number.startswith("PO")
+        assert order.requisition_reference == "PR001"
+        assert order.vendor == "Test Vendor"
+        assert order.payment_terms == "Net 30"
+        assert len(order.items) == 1
+        assert order.items[0].requisition_reference == "PR001"
+        assert order.items[0].requisition_item == 1
+        assert order.items[0].quantity == 10
+        assert order.items[0].price == 100.0
+        
+        # Check requisition status updated
+        requisition = self.data_layer.get_requisition("PR001")
+        assert requisition.status == DocumentStatus.ORDERED

@@ -25,6 +25,7 @@ from pathlib import Path
 import sys
 import os
 import json
+import shutil
 
 # Import helper modules
 from genconftest_templates import get_template_for_subdir
@@ -200,6 +201,28 @@ def main():
         if subdir.lower() == "root":
             # For root directory, use the source path
             target_dir = source_path
+        elif subdir.lower() == "models":
+            # Special handling for models directory to avoid namespace conflict
+            # Use model_tests instead of models
+            target_dir = source_path / "model_tests"
+            print(f"Special handling for models: using 'model_tests' directory to avoid namespace conflicts")
+            
+            # Create the model_tests directory if it doesn't exist
+            os.makedirs(target_dir, exist_ok=True)
+            
+            # Check if directory has test files
+            has_tests = check_for_test_files(source_path / subdir)
+            if not has_tests and not args.verify_only:
+                print(f"Warning: Directory '{subdir}' does not contain any test files.")
+                
+            # Copy test files from models to model_tests if needed
+            if not args.verify_only and not check_for_test_files(target_dir):
+                model_tests = list((source_path / subdir).glob("test_*.py"))
+                for test_file in model_tests:
+                    dest_file = target_dir / test_file.name
+                    if not dest_file.exists() or args.overwrite:
+                        print(f"  Copying {test_file.name} to model_tests directory")
+                        shutil.copy2(test_file, dest_file)
         else:
             # For subdirectories, append to source path
             target_dir = source_path / subdir
