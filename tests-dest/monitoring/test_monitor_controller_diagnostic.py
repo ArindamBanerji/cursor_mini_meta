@@ -160,17 +160,15 @@ def test_direct_controller_call():
     mock_monitor_service = MagicMock()
     mock_monitor_service.get_error_logs.return_value = []
     
-    # Patch the get_monitor_service function to return our mock
-    with patch('controllers.monitor_controller.get_monitor_service', return_value=mock_monitor_service):
-        # Call the controller function directly
-        response = pytest.run_async(api_get_errors(mock_request))
-        
-        # Log the response
-        logger.info(f"Response from direct controller call: {response}")
-        
-        # Verify the monitor service was called
-        mock_monitor_service.get_error_logs.assert_called_once()
-        logger.info(f"Mock service called: {mock_monitor_service.get_error_logs.call_count} times")
+    # Call the controller function directly with the mock service
+    import asyncio
+    response = asyncio.run(api_get_errors(mock_request, mock_monitor_service))
+    
+    # Log the response
+    logger.info(f"Response from direct controller call: {response}")
+    
+    # Verify the monitor service was called
+    mock_monitor_service.get_error_logs.assert_called_once()
 
 def test_testclient_with_patched_client():
     """Test using TestClient with a patched request.client attribute"""

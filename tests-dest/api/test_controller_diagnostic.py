@@ -184,12 +184,20 @@ def mock_request():
 
 def test_get_safe_client_host(mock_request):
     """Test the get_safe_client_host function."""
-    # Test with TEST_ENV=True (this takes precedence)
-    host = get_safe_client_host(mock_request)
-    assert host == 'test-client'  # Should return test-client in test environment
+    # Save original TEST_MODE value
+    original_test_mode = os.environ.get('TEST_MODE')
     
-    # Test with TEST_ENV=False
-    with patch.dict(os.environ, {'TEST_ENV': 'False'}):
+    try:
+        # Test with TEST_MODE=true (default in test environment)
+        host = get_safe_client_host(mock_request)
+        assert host == 'test-client'  # Should return test-client in test environment
+        
+        # Test with TEST_MODE unset
+        if 'TEST_MODE' in os.environ:
+            del os.environ['TEST_MODE']
+        
+        # With client.host properly set
+        mock_request.client.host = "127.0.0.1"
         host = get_safe_client_host(mock_request)
         assert host == '127.0.0.1'  # Should return actual client host
         
@@ -197,6 +205,13 @@ def test_get_safe_client_host(mock_request):
         mock_request.client = None
         host = get_safe_client_host(mock_request)
         assert host == 'unknown'
+    
+    finally:
+        # Restore original TEST_MODE value
+        if original_test_mode is not None:
+            os.environ['TEST_MODE'] = original_test_mode
+        elif 'TEST_MODE' in os.environ:
+            del os.environ['TEST_MODE']
 
 @pytest.mark.asyncio
 async def test_health_check_endpoint(mock_request):

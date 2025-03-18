@@ -300,9 +300,9 @@ async def test_health_check_with_create_controller_test(mock_request, mock_monit
 async def test_health_check_error_scenario(mock_request, mock_monitor_service):
     """Test health check endpoint with error scenario."""
     print("\n--- Testing health check with error scenario ---")
-
-    # Setup mock to return error status
-    mock_monitor_service.check_system_health.return_value = {
+    
+    # Set up the error response data
+    error_response = {
         "status": "error",
         "timestamp": "2025-03-16T12:00:00Z",
         "components": {
@@ -347,29 +347,26 @@ async def test_health_check_error_scenario(mock_request, mock_monitor_service):
             "python_version": "3.11.4"
         }
     }
-
-    # Create wrapped controller with mocks
-    wrapped = unwrap_dependencies(
-        api_health_check,
-        monitor_service=mock_monitor_service
-    )
-
-    # Call the function
-    result = await wrapped(mock_request)
-
+    
+    # Setup mock to return error status
+    mock_monitor_service.check_system_health.return_value = error_response
+    
+    # Call the API health check endpoint directly with the mock service
+    result = await api_health_check(mock_request, mock_monitor_service)
+    
     # Verify result
     assert isinstance(result, JSONResponse)
-
+    
     # Status code should be:
-    # - 503 for error
+    # - 503 for error status
     assert result.status_code == 503  # Service Unavailable for error status
-
-    content = json.loads(result.body.decode('utf-8'))
-    assert "status" in content
+    
+    # Check content
+    content = json.loads(result.body)
     assert content["status"] == "error"
-
-    print(f"Result status code: {result.status_code}")
-    print(f"Result content: {content}")
+    assert "timestamp" in content
+    assert "components" in content
+    assert "system_info" in content
 
 @pytest.mark.asyncio
 async def test_health_check_warning_scenario(mock_request, mock_monitor_service):

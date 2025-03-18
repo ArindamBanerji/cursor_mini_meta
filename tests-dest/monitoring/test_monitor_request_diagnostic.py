@@ -192,31 +192,52 @@ def test_get_safe_client_host():
     
     from controllers.monitor_controller import get_safe_client_host
     
-    # Test with a valid request
-    mock_request = MagicMock(spec=Request)
-    mock_request.client = MagicMock()
-    mock_request.client.host = "127.0.0.1"
+    # Save current TEST_MODE value
+    original_test_mode = os.environ.get('TEST_MODE')
     
-    host = get_safe_client_host(mock_request)
-    logger.info(f"Host from valid request: {host}")
-    assert host == "127.0.0.1"
+    try:
+        # Temporarily unset TEST_MODE to check real client host behavior
+        if 'TEST_MODE' in os.environ:
+            del os.environ['TEST_MODE']
+        
+        # Test with a valid request
+        mock_request = MagicMock(spec=Request)
+        mock_request.client = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        
+        host = get_safe_client_host(mock_request)
+        logger.info(f"Host from valid request: {host}")
+        assert host == "127.0.0.1"
+        
+        # Test with a request that has no client
+        mock_request = MagicMock(spec=Request)
+        mock_request.client = None
+        
+        host = get_safe_client_host(mock_request)
+        logger.info(f"Host from request with no client: {host}")
+        assert host == "unknown"
+        
+        # Test with a request that has no host
+        mock_request = MagicMock(spec=Request)
+        mock_request.client = MagicMock()
+        delattr(mock_request.client, "host")
+        
+        host = get_safe_client_host(mock_request)
+        logger.info(f"Host from request with no host: {host}")
+        assert host == "unknown"
+        
+        # Additionally test with TEST_MODE=true
+        os.environ['TEST_MODE'] = 'true'
+        host = get_safe_client_host(mock_request)
+        logger.info(f"Host with TEST_MODE=true: {host}")
+        assert host == "test-client"
     
-    # Test with a request that has no client
-    mock_request = MagicMock(spec=Request)
-    mock_request.client = None
-    
-    host = get_safe_client_host(mock_request)
-    logger.info(f"Host from request with no client: {host}")
-    assert host == "unknown"
-    
-    # Test with a request that has no host
-    mock_request = MagicMock(spec=Request)
-    mock_request.client = MagicMock()
-    delattr(mock_request.client, "host")
-    
-    host = get_safe_client_host(mock_request)
-    logger.info(f"Host from request with no host: {host}")
-    assert host == "unknown"
+    finally:
+        # Restore original TEST_MODE value
+        if original_test_mode is not None:
+            os.environ['TEST_MODE'] = original_test_mode
+        elif 'TEST_MODE' in os.environ:
+            del os.environ['TEST_MODE']
 
 async def test_mock_request_for_controller():
     """Test creating a proper mock request for controller tests"""
@@ -234,17 +255,14 @@ async def test_mock_request_for_controller():
     mock_monitor_service = MagicMock()
     mock_monitor_service.get_error_logs.return_value = []
     
-    # Patch the get_monitor_service function to return our mock
-    with patch('controllers.monitor_controller.get_monitor_service', return_value=mock_monitor_service):
-        # Call the controller function directly
-        response = await api_get_errors(mock_request)
-        
-        # Log the response
-        logger.info(f"Response from controller: {response}")
-        
-        # Verify the monitor service was called
-        mock_monitor_service.get_error_logs.assert_called_once()
-        logger.info(f"Mock service called: {mock_monitor_service.get_error_logs.call_count} times")
+    # Call the controller function directly with the mock service
+    response = await api_get_errors(mock_request, mock_monitor_service)
+    
+    # Log the response
+    logger.info(f"Response from controller: {response}")
+    
+    # Verify the monitor service was called
+    mock_monitor_service.get_error_logs.assert_called_once()
 
 def test_fix_monitor_controller_tests():
     """Test a fix for the monitor controller tests"""
@@ -287,17 +305,14 @@ async def test_controller_with_direct_call():
     mock_monitor_service = MagicMock()
     mock_monitor_service.get_error_logs.return_value = []
     
-    # Patch the get_monitor_service function to return our mock
-    with patch('controllers.monitor_controller.get_monitor_service', return_value=mock_monitor_service):
-        # Call the controller function directly
-        response = await api_get_errors(mock_request)
-        
-        # Log the response
-        logger.info(f"Response from direct controller call: {response}")
-        
-        # Verify the monitor service was called
-        mock_monitor_service.get_error_logs.assert_called_once()
-        logger.info(f"Mock service called: {mock_monitor_service.get_error_logs.call_count} times")
+    # Call the controller function directly with the mock service
+    response = await api_get_errors(mock_request, mock_monitor_service)
+    
+    # Log the response
+    logger.info(f"Response from direct controller call: {response}")
+    
+    # Verify the monitor service was called
+    mock_monitor_service.get_error_logs.assert_called_once()
 
 async def run_async_tests():
     """Run all async tests"""

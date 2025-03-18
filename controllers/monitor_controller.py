@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 import os
 
 from controllers import BaseController
-from services import get_monitor_service
+from services.monitor_service import get_monitor_service, monitor_service
 
 # Configure logging
 logger = logging.getLogger("monitor_controller")
@@ -33,7 +33,7 @@ def get_safe_client_host(request: Request) -> str:
     """
     try:
         # In test environments, always return a test client host
-        if os.environ.get('TEST_ENV') == 'True':
+        if os.environ.get('TEST_MODE') == 'true':
             return 'test-client'
             
         # Check if request has client attribute and it's not None
@@ -60,16 +60,13 @@ class ErrorsQueryParams(BaseModel):
 
 # API Controller methods
 
-async def api_health_check(
-    request: Request,
-    monitor_service = Depends(get_monitor_service)
-) -> JSONResponse:
+async def api_health_check(request: Request, monitor_service_param = None):
     """
-    Check system health (API endpoint).
+    API endpoint for health check.
     
     Args:
         request: FastAPI request
-        monitor_service: Monitor service dependency
+        monitor_service_param: Optional monitor service for dependency injection in tests
         
     Returns:
         JSON response with health check results
@@ -77,8 +74,11 @@ async def api_health_check(
     logger.info(f"Health check requested from {get_safe_client_host(request)}")
     
     try:
+        # Use provided service or default
+        service = monitor_service_param if monitor_service_param is not None else monitor_service
+        
         # Perform health check
-        health_data = monitor_service.check_system_health()
+        health_data = service.check_system_health()
         logger.info(f"Health check completed with status: {health_data['status']}")
         
         # Determine response status code based on health status
@@ -105,7 +105,7 @@ async def api_health_check(
     except Exception as e:
         # Log error
         logger.error(f"Error in api_health_check: {str(e)}", exc_info=True)
-        monitor_service.log_error(
+        service.log_error(
             error_type="controller_error",
             message=f"Error in api_health_check: {str(e)}",
             component="monitor_controller",
@@ -122,171 +122,149 @@ async def api_health_check(
             }
         )
 
-async def api_get_metrics(request: Request) -> JSONResponse:
+async def api_get_metrics(request: Request, monitor_service_param = None) -> JSONResponse:
     """
     Get system metrics (API endpoint).
     
     Args:
         request: FastAPI request
+        monitor_service_param: Optional monitor service for dependency injection in tests
         
     Returns:
         JSON response with metrics data
     """
     logger.info(f"Metrics requested from {get_safe_client_host(request)}")
-    monitor_service = get_monitor_service()
     
     try:
+        # Use provided service or default
+        service = monitor_service_param if monitor_service_param is not None else monitor_service
+        
         # Parse query parameters
         params = await BaseController.parse_query_params(request, MetricsQueryParams)
         logger.debug(f"Metrics query params: hours={params.hours}")
         
         # Get metrics summary
-        metrics_summary = monitor_service.get_metrics_summary(hours=params.hours)
+        metrics_summary = service.get_metrics_summary(hours=params.hours)
         logger.info(f"Metrics retrieved: {metrics_summary.get('count', 0)} data points covering {metrics_summary.get('time_range', {}).get('duration_hours', 0)} hours")
         
         # Return metrics data
         return BaseController.create_success_response(
             data=metrics_summary,
-            message="System metrics retrieved successfully"
+            message="Metrics retrieved successfully"
         )
     except Exception as e:
         # Log error
         logger.error(f"Error in api_get_metrics: {str(e)}", exc_info=True)
-        monitor_service.log_error(
+        service.log_error(
             error_type="controller_error",
             message=f"Error in api_get_metrics: {str(e)}",
             component="monitor_controller",
-            context={"path": request.url.path, "query_params": str(request.query_params)}
+            context={"path": str(request.url.path)}
         )
-        
-        # Return error response
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": "server_error",
-                "message": f"Failed to retrieve metrics: {str(e)}"
-            }
-        )
+        return BaseController.create_error_response(str(e))
 
-async def api_get_errors(request: Request) -> JSONResponse:
+async def api_get_errors(request: Request, monitor_service_param = None) -> JSONResponse:
     """
     Get error logs (API endpoint).
     
     Args:
         request: FastAPI request
+        monitor_service_param: Optional monitor service for dependency injection in tests
         
     Returns:
-        JSON response with error logs
+        JSON response with error logs data
     """
     logger.info(f"Error logs requested from {get_safe_client_host(request)}")
-    monitor_service = get_monitor_service()
     
     try:
+        # Use provided service or default
+        service = monitor_service_param if monitor_service_param is not None else monitor_service
+        
         # Parse query parameters
         params = await BaseController.parse_query_params(request, ErrorsQueryParams)
-        logger.debug(f"Error query params: type={params.error_type}, component={params.component}, hours={params.hours}, limit={params.limit}")
+        logger.debug(f"Errors query params: type={params.error_type}, component={params.component}, hours={params.hours}, limit={params.limit}")
         
-        # Always get detailed error logs with filters
-        error_logs = monitor_service.get_error_logs(
-            error_type=params.error_type,
-            component=params.component,
-            hours=params.hours,
-            limit=params.limit
-        )
+        # Get error logs
+        errors = service.get_error_logs(error_type=params.error_type, component=params.component, hours=params.hours, limit=params.limit)
         
-        # Convert to dictionaries for JSON response
-        errors_data = [log.to_dict() for log in error_logs]
-        logger.info(f"Retrieved {len(errors_data)} filtered error logs")
+        # Convert to dict format for response
+        error_dicts = [error.to_dict() for error in errors]
+        logger.info(f"Retrieved {len(error_dicts)} filtered error logs")
         
-        # Return error logs with consistent structure
-        return BaseController.create_success_response(
-            data={
-                "errors": errors_data,
-                "count": len(errors_data),
-                "filters": {
-                    "error_type": params.error_type,
-                    "component": params.component,
-                    "hours": params.hours,
-                    "limit": params.limit
-                },
-                # Include summary data as well
-                "by_type": {error_type: sum(1 for log in error_logs if log.error_type == error_type) 
-                           for error_type in set(log.error_type for log in error_logs)},
-                "by_component": {component: sum(1 for log in error_logs if log.component == component)
-                                for component in set(log.component for log in error_logs if log.component)},
-                "recent": [log.to_dict() for log in error_logs[:5]]  # First 5 logs (already sorted by timestamp)
+        # Get summary statistics
+        error_types = {}
+        error_components = {}
+        for error in errors:
+            error_type = error.error_type
+            error_types[error_type] = error_types.get(error_type, 0) + 1
+            
+            component = error.component
+            error_components[component] = error_components.get(component, 0) + 1
+        
+        # Prepare response data
+        response_data = {
+            "errors": error_dicts,
+            "count": len(error_dicts),
+            "filters": {
+                "error_type": params.error_type,
+                "component": params.component,
+                "hours": params.hours,
+                "limit": params.limit
             },
+            "by_type": error_types,
+            "by_component": error_components,
+            "recent": error_dicts[:5]  # Include first 5 as "recent" for convenience
+        }
+        
+        # Return success response with error logs data
+        return BaseController.create_success_response(
+            data=response_data,
             message="Error logs retrieved successfully"
         )
     except Exception as e:
-        # Log error (but don't cause an infinite loop if this fails)
-        try:
-            logger.error(f"Error in api_get_errors: {str(e)}", exc_info=True)
-            monitor_service.log_error(
-                error_type="controller_error",
-                message=f"Error in api_get_errors: {str(e)}",
-                component="monitor_controller",
-                context={"path": request.url.path, "query_params": str(request.query_params)}
-            )
-        except Exception as log_error:
-            logger.error(f"Failed to log error in api_get_errors: {str(log_error)}")
-        
-        # Return error response
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": "server_error",
-                "message": f"Failed to retrieve error logs: {str(e)}"
-            }
+        # Log error
+        logger.error(f"Error in api_get_errors: {str(e)}", exc_info=True)
+        service.log_error(
+            error_type="controller_error",
+            message=f"Error in api_get_errors: {str(e)}",
+            component="monitor_controller",
+            context={"path": str(request.url.path)}
         )
+        return BaseController.create_error_response(str(e))
 
-async def api_collect_metrics(request: Request) -> JSONResponse:
+async def api_collect_metrics(request: Request, monitor_service_param = None) -> JSONResponse:
     """
-    Collect current system metrics (API endpoint).
+    Trigger metrics collection (API endpoint).
     
     Args:
         request: FastAPI request
+        monitor_service_param: Optional monitor service for dependency injection in tests
         
     Returns:
-        JSON response with collected metrics
+        JSON response with collection status
     """
     logger.info(f"Metrics collection requested from {get_safe_client_host(request)}")
-    monitor_service = get_monitor_service()
     
     try:
-        # Collect current metrics
-        metrics = monitor_service.collect_current_metrics()
-        logger.info(f"Metrics collected: CPU: {metrics.cpu_percent:.1f}%, Memory: {metrics.memory_usage:.1f}%, Disk: {metrics.disk_usage:.1f}%")
+        # Use provided service or default
+        service = monitor_service_param if monitor_service_param is not None else monitor_service
         
-        # Return metrics data
+        # Collect metrics
+        metrics = service.collect_current_metrics()
+        logger.info(f"Metrics collected successfully: {metrics.timestamp}")
+        
+        # Return success response with the collected metrics
         return BaseController.create_success_response(
-            data={
-                "timestamp": metrics.timestamp.isoformat(),
-                "cpu_percent": metrics.cpu_percent,
-                "memory_usage": metrics.memory_usage,
-                "available_memory": metrics.available_memory,
-                "disk_usage": metrics.disk_usage
-            },
+            data=metrics.to_dict(),
             message="Metrics collected successfully"
         )
     except Exception as e:
         # Log error
         logger.error(f"Error in api_collect_metrics: {str(e)}", exc_info=True)
-        monitor_service.log_error(
+        service.log_error(
             error_type="controller_error",
             message=f"Error in api_collect_metrics: {str(e)}",
             component="monitor_controller",
-            context={"path": request.url.path}
+            context={"path": str(request.url.path)}
         )
-        
-        # Return error response
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": "server_error",
-                "message": f"Failed to collect metrics: {str(e)}"
-            }
-        )
+        return BaseController.create_error_response(str(e))
