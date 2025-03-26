@@ -1,0 +1,189 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.4, pytest-8.3.5, pluggy-1.5.0 -- C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\proj-envs\python_expts_venv\Scripts\python.exe
+cachedir: .pytest_cache
+Fugue tests will be initialized with options:
+rootdir: C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness\tests-dest
+configfile: pytest.ini
+plugins: anyio-3.7.1, fugue-0.9.1, asyncio-0.23.5, env-1.1.5, freezegun-0.4.2, typeguard-4.2.1
+asyncio: mode=Mode.AUTO
+collecting ... collected 148 items
+
+unit/test_base_controller.py::TestBaseController::test_parse_json_body_valid PASSED [  0%]
+unit/test_base_controller.py::TestBaseController::test_parse_json_body_invalid PASSED [  1%]
+unit/test_base_controller.py::TestBaseController::test_parse_json_body_missing_field PASSED [  2%]
+unit/test_base_controller.py::TestBaseController::test_parse_json_body_invalid_json PASSED [  2%]
+unit/test_base_controller.py::TestBaseController::test_parse_query_params_valid PASSED [  3%]
+unit/test_base_controller.py::TestBaseController::test_parse_query_params_invalid PASSED [  4%]
+unit/test_base_controller.py::TestBaseController::test_parse_query_params_missing_required PASSED [  4%]
+unit/test_base_controller.py::TestBaseController::test_create_success_response PASSED [  5%]
+unit/test_base_controller.py::TestBaseController::test_create_success_response_defaults PASSED [  6%]
+unit/test_base_controller.py::TestBaseController::test_redirect_to_route PASSED [  6%]
+unit/test_base_controller.py::TestBaseController::test_redirect_to_route_with_params PASSED [  7%]
+unit/test_base_controller.py::TestBaseController::test_redirect_to_route_custom_status_code PASSED [  8%]
+unit/test_base_service.py::TestBaseService::test_init PASSED             [  8%]
+unit/test_base_service.py::TestBaseService::test_get_state PASSED        [  9%]
+unit/test_base_service.py::TestBaseService::test_set_state PASSED        [ 10%]
+unit/test_base_service.py::TestBaseService::test_get_last_updated PASSED [ 10%]
+unit/test_base_service.py::TestBaseService::test_validate_state PASSED   [ 11%]
+unit/test_base_service.py::TestBaseService::test_save_state PASSED       [ 12%]
+unit/test_base_service.py::TestBaseService::test_save_state_no_manager PASSED [ 12%]
+unit/test_base_service.py::TestBaseService::test_save_state_error PASSED [ 13%]
+unit/test_base_service.py::TestBaseService::test_load_state PASSED       [ 14%]
+unit/test_base_service.py::TestBaseService::test_load_state_no_manager PASSED [ 14%]
+unit/test_base_service.py::TestBaseService::test_load_state_error PASSED [ 15%]
+unit/test_base_service.py::TestBaseService::test_load_state_empty PASSED [ 16%]
+unit/test_base_service.py::TestBaseService::test_clear_state PASSED      [ 16%]
+unit/test_base_service.py::TestBaseService::test_get_item PASSED         [ 17%]
+unit/test_base_service.py::TestBaseService::test_set_item PASSED         [ 18%]
+unit/test_base_service.py::TestBaseService::test_delete_item PASSED      [ 18%]
+unit/test_base_service.py::TestBaseService::test_generic_type_parameter PASSED [ 19%]
+unit/test_dashboard_controller.py::TestDashboardController::test_show_dashboard PASSED [ 20%]
+unit/test_dashboard_controller.py::TestDashboardController::test_redirect_to_dashboard PASSED [ 20%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_p2p_statistics PASSED [ 21%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_p2p_statistics_with_error PASSED [ 22%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_system_health PASSED [ 22%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_system_health_with_error PASSED [ 23%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_recent_activities PASSED [ 24%]
+unit/test_dashboard_controller.py::TestDashboardController::test_get_recent_activities_with_error PASSED [ 25%]
+unit/test_error_utils.py::TestErrorClasses::test_app_error_default_values PASSED [ 25%]
+unit/test_error_utils.py::TestErrorClasses::test_app_error_custom_values PASSED [ 26%]
+unit/test_error_utils.py::TestErrorClasses::test_validation_error PASSED [ 27%]
+unit/test_error_utils.py::TestErrorClasses::test_not_found_error PASSED  [ 27%]
+unit/test_error_utils.py::TestErrorClasses::test_authentication_error PASSED [ 28%]
+unit/test_error_utils.py::TestErrorClasses::test_authorization_error PASSED [ 29%]
+unit/test_error_utils.py::TestErrorClasses::test_bad_request_error PASSED [ 29%]
+unit/test_error_utils.py::TestErrorClasses::test_conflict_error PASSED   [ 30%]
+unit/test_error_utils.py::TestErrorHandlers::test_create_error_response PASSED [ 31%]
+unit/test_error_utils.py::TestErrorHandlers::test_error_dict_method PASSED [ 31%]
+unit/test_models_common.py::TestBaseDataModel::test_init_with_defaults PASSED [ 32%]
+unit/test_models_common.py::TestBaseDataModel::test_init_with_values PASSED [ 33%]
+unit/test_models_common.py::TestBaseDataModel::test_update_method PASSED [ 33%]
+unit/test_models_common.py::TestBaseDataModel::test_update_ignores_nonexistent_fields PASSED [ 34%]
+unit/test_models_common.py::TestEntityCollection::test_init PASSED       [ 35%]
+unit/test_models_common.py::TestEntityCollection::test_add_and_get PASSED [ 35%]
+unit/test_models_common.py::TestEntityCollection::test_get_nonexistent PASSED [ 36%]
+unit/test_models_common.py::TestEntityCollection::test_get_all PASSED    [ 37%]
+unit/test_models_common.py::TestEntityCollection::test_remove PASSED     [ 37%]
+unit/test_models_common.py::TestEntityCollection::test_remove_nonexistent PASSED [ 38%]
+unit/test_models_common.py::TestEntityCollection::test_count PASSED      [ 39%]
+unit/test_p2p_common.py::TestP2PCommonDependencies::test_p2p_service_dependency PASSED [ 39%]
+unit/test_p2p_common.py::TestP2PCommonDependencies::test_monitor_service_dependency PASSED [ 40%]
+unit/test_p2p_common.py::TestP2PCommonDependencies::test_material_service_dependency PASSED [ 41%]
+unit/test_p2p_common.py::TestP2PCommonErrorHandling::test_log_controller_error PASSED [ 41%]
+unit/test_p2p_common.py::TestP2PCommonErrorHandling::test_log_controller_error_without_document PASSED [ 42%]
+unit/test_p2p_common.py::TestP2PCommonErrorHandling::test_handle_document_not_found_requisition PASSED [ 43%]
+unit/test_p2p_common.py::TestP2PCommonErrorHandling::test_handle_document_not_found_order PASSED [ 43%]
+unit/test_p2p_common.py::TestP2PCommonFilterParams::test_document_filter_params PASSED [ 44%]
+unit/test_p2p_common.py::TestP2PCommonFilterParams::test_requisition_filter_params PASSED [ 45%]
+unit/test_p2p_common.py::TestP2PCommonFilterParams::test_order_filter_params PASSED [ 45%]
+unit/test_p2p_common.py::TestP2PCommonUtilities::test_format_timestamp PASSED [ 46%]
+unit/test_p2p_common.py::TestP2PCommonUtilities::test_format_date PASSED [ 47%]
+unit/test_p2p_common.py::TestP2PCommonUtilities::test_get_status_badge_color PASSED [ 47%]
+unit/test_p2p_common.py::TestP2PCommonUtilities::test_status_badge_colors_constant PASSED [ 48%]
+unit/test_p2p_order_common.py::TestOrderFormatting::test_format_order_item PASSED [ 49%]
+unit/test_p2p_order_common.py::TestOrderFormatting::test_format_order_for_response PASSED [ 50%]
+unit/test_p2p_order_common.py::TestOrderFormatting::test_format_orders_list PASSED [ 50%]
+unit/test_p2p_order_common.py::TestOrderFormatting::test_format_orders_list_without_filters PASSED [ 51%]
+unit/test_p2p_order_common.py::TestOrderFormatting::test_format_order_item_without_delivery_date PASSED [ 52%]
+unit/test_p2p_order_common.py::TestOrderErrorHandling::test_handle_order_not_found PASSED [ 52%]
+unit/test_p2p_order_common.py::TestOrderErrorHandling::test_log_order_error PASSED [ 53%]
+unit/test_p2p_order_common.py::TestOrderErrorHandling::test_log_order_error_without_document PASSED [ 54%]
+unit/test_p2p_requisition_common.py::TestRequisitionFormatting::test_format_requisition_item PASSED [ 54%]
+unit/test_p2p_requisition_common.py::TestRequisitionFormatting::test_format_requisition_for_response PASSED [ 55%]
+unit/test_p2p_requisition_common.py::TestRequisitionFormatting::test_format_requisitions_list PASSED [ 56%]
+unit/test_p2p_requisition_common.py::TestRequisitionFormatting::test_format_requisitions_list_without_filters PASSED [ 56%]
+unit/test_p2p_requisition_common.py::TestRequisitionValidation::test_validate_requisition_items_valid PASSED [ 57%]
+unit/test_p2p_requisition_common.py::TestRequisitionValidation::test_validate_requisition_items_invalid PASSED [ 58%]
+unit/test_p2p_requisition_common.py::TestRequisitionValidation::test_validate_requisition_items_material_error PASSED [ 58%]
+unit/test_p2p_requisition_common.py::TestRequisitionErrorHandling::test_handle_requisition_not_found PASSED [ 59%]
+unit/test_p2p_requisition_common.py::TestRequisitionErrorHandling::test_log_requisition_error PASSED [ 60%]
+unit/test_p2p_requisition_common.py::TestRequisitionErrorHandling::test_log_requisition_error_without_document PASSED [ 60%]
+unit/test_session_cookie_integration.py::TestSessionCookieIntegration::test_session_persistence_between_requests PASSED [ 61%]
+unit/test_session_cookie_integration.py::TestSessionCookieIntegration::test_flash_message_persistence PASSED [ 62%]
+unit/test_session_cookie_integration.py::TestSessionCookieIntegration::test_form_data_persistence PASSED [ 62%]
+unit/test_session_cookie_integration.py::TestSessionCookieIntegration::test_multiple_requests_session_chain PASSED [ 63%]
+unit/test_session_integration_diagnostic.py::TestSessionIntegrationDiagnostic::test_flash_message_flow PASSED [ 64%]
+unit/test_session_integration_diagnostic.py::TestSessionIntegrationDiagnostic::test_form_data_preservation PASSED [ 64%]
+unit/test_session_integration_diagnostic.py::TestSessionIntegrationDiagnostic::test_not_found_error_handling PASSED [ 65%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_session_initialization PASSED [ 66%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_session_persistence PASSED [ 66%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_flash_messages PASSED [ 67%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_form_data_preservation PASSED [ 68%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_add_flash_message_function PASSED [ 68%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_get_flash_messages_function PASSED [ 69%]
+unit/test_session_middleware.py::TestSessionMiddleware::test_form_data_functions PASSED [ 70%]
+unit/test_session_middleware_diagnostic.py::TestSessionMiddlewareDiagnostic::test_flash_message_diagnostic PASSED [ 70%]
+unit/test_session_middleware_diagnostic.py::TestSessionMiddlewareDiagnostic::test_form_data_diagnostic PASSED [ 71%]
+unit/test_state_manager.py::TestStateManager::test_set_and_get PASSED    [ 72%]
+unit/test_state_manager.py::TestStateManager::test_get_nonexistent PASSED [ 72%]
+unit/test_state_manager.py::TestStateManager::test_get_with_default PASSED [ 73%]
+unit/test_state_manager.py::TestStateManager::test_delete PASSED         [ 74%]
+unit/test_state_manager.py::TestStateManager::test_delete_nonexistent PASSED [ 75%]
+unit/test_state_manager.py::TestStateManager::test_get_all_keys PASSED   [ 75%]
+unit/test_state_manager.py::TestStateManager::test_clear PASSED          [ 76%]
+unit/test_state_manager.py::TestStateManager::test_pydantic_model_storage PASSED [ 77%]
+unit/test_state_manager.py::TestStateManager::test_persistence PASSED    [ 77%]
+unit/test_template_service.py::TestTemplateService::test_url_for_registered_in_globals PASSED [ 78%]
+unit/test_template_service.py::TestTemplateService::test_url_for_method_calls_url_service PASSED [ 79%]
+unit/test_template_service.py::TestTemplateService::test_render_template_returns_html_response PASSED [ 79%]
+unit/test_template_service.py::TestTemplateService::test_render_template_error_handling PASSED [ 80%]
+unit/test_template_service.py::TestTemplateService::test_material_list_template_rendering PASSED [ 81%]
+unit/test_template_service.py::TestTemplateService::test_material_detail_template_rendering PASSED [ 81%]
+unit/test_template_service.py::TestTemplateService::test_material_create_template_rendering PASSED [ 82%]
+unit/test_template_service.py::TestTemplateService::test_material_update_template_rendering PASSED [ 83%]
+unit/test_template_service.py::TestTemplateService::test_template_with_validation_errors PASSED [ 83%]
+unit/test_url_service.py::TestURLService::test_get_url_for_simple_route PASSED [ 84%]
+unit/test_url_service.py::TestURLService::test_get_url_with_param PASSED [ 85%]
+unit/test_url_service.py::TestURLService::test_get_url_with_multiple_params PASSED [ 85%]
+unit/test_url_service.py::TestURLService::test_nonexistent_route PASSED  [ 86%]
+unit/test_url_service.py::TestURLService::test_param_substitution_type_handling PASSED [ 87%]
+unit/test_url_service.py::TestURLService::test_real_route_compatibility PASSED [ 87%]
+unit/test_url_service.py::TestURLService::test_material_list_url PASSED  [ 88%]
+unit/test_url_service.py::TestURLService::test_material_detail_url PASSED [ 89%]
+unit/test_url_service.py::TestURLService::test_material_create_form_url PASSED [ 89%]
+unit/test_url_service.py::TestURLService::test_material_update_form_url PASSED [ 90%]
+unit/test_url_service.py::TestURLService::test_material_deprecate_url PASSED [ 91%]
+unit/test_url_service.py::TestURLService::test_api_material_list_url PASSED [ 91%]
+unit/test_url_service.py::TestURLService::test_api_material_detail_url PASSED [ 92%]
+unit/test_url_service.py::TestURLService::test_api_material_create_url PASSED [ 93%]
+unit/test_url_service.py::TestURLService::test_api_material_update_url PASSED [ 93%]
+unit/test_url_service.py::TestURLService::test_api_material_deprecate_url PASSED [ 94%]
+unit/test_url_service.py::TestURLService::test_api_monitor_health_url PASSED [ 95%]
+unit/test_url_service.py::TestURLService::test_api_monitor_metrics_url PASSED [ 95%]
+unit/test_url_service.py::TestURLService::test_api_monitor_errors_url PASSED [ 96%]
+unit/test_url_service.py::TestURLService::test_api_monitor_collect_metrics_url PASSED [ 97%]
+unit/test_url_service.py::TestURLService::test_material_route_missing_parameter PASSED [ 97%]
+unit/test_url_service.py::TestURLService::test_material_route_invalid_parameter PASSED [ 98%]
+unit/test_url_service.py::TestURLService::test_material_route_extra_parameters PASSED [ 99%]
+unit/test_url_service.py::TestURLService::test_material_route_complex_parameter PASSED [100%]
+
+============================== warnings summary ===============================
+unit\test_base_service.py:135
+  C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness\tests-dest\unit\test_base_service.py:135: PytestCollectionWarning: cannot collect test class 'TestModel' because it has a __init__ constructor (from: unit/test_base_service.py)
+    class TestModel(BaseModel):
+
+unit\test_url_service.py:129
+  C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\kaggle_experiments\cursor_projects\mini_meta_harness\tests-dest\unit\test_url_service.py:129: PytestCollectionWarning: cannot collect test class 'TestModel' because it has a __init__ constructor (from: unit/test_url_service.py)
+    class TestModel(BaseModel):
+
+..\..\..\..\proj-envs\python_expts_venv\Lib\site-packages\pytest_freezegun.py:17: 296 warnings
+  C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\proj-envs\python_expts_venv\Lib\site-packages\pytest_freezegun.py:17: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pytest.__version__) < LooseVersion('3.6.0'):
+
+unit/test_p2p_order_common.py: 10 warnings
+unit/test_p2p_requisition_common.py: 8 warnings
+  C:\Program Files\Python311\Lib\unittest\mock.py:515: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use `model_fields` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    if iscoroutinefunction(getattr(spec, attr, None)):
+
+unit/test_p2p_order_common.py: 10 warnings
+unit/test_p2p_requisition_common.py: 8 warnings
+  C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\proj-envs\python_expts_venv\Lib\site-packages\pydantic\_internal\_model_construction.py:248: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use `model_fields` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    warnings.warn('The `__fields__` attribute is deprecated, use `model_fields` instead.', DeprecationWarning)
+
+unit/test_session_middleware.py::TestSessionMiddleware::test_flash_messages
+unit/test_session_middleware.py::TestSessionMiddleware::test_form_data_preservation
+  C:\Users\baner\CopyFolder\IoT_thoughts\python-projects\proj-envs\python_expts_venv\Lib\site-packages\httpx\_client.py:799: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    warnings.warn(message, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 148 passed, 336 warnings in 0.91s ======================

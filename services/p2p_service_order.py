@@ -18,6 +18,30 @@ from services.p2p_service_helpers import (
     determine_order_status_from_items,
     append_note
 )
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import models if available
+try:
+    from models.p2p import Order, DocumentStatus
+except ImportError:
+    logger.error("Failed to import P2P models. Order operations will not work properly.")
+    
+    class Order:
+        """Placeholder Order class if real one can't be imported."""
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
+    class DocumentStatus:
+        """Placeholder DocumentStatus enum if real one can't be imported."""
+        DRAFT = "DRAFT"
+        SUBMITTED = "SUBMITTED"
+        APPROVED = "APPROVED"
+        REJECTED = "REJECTED"
 
 def validate_order_for_submission(order: Order) -> None:
     """
@@ -203,3 +227,42 @@ def filter_orders(
         filtered_orders = [o for o in filtered_orders if o.created_at <= date_to]
     
     return filtered_orders
+
+def create_test_order(
+    id: str = "ORD001", 
+    title: str = "Test Order", 
+    description: str = "Order for testing",
+    status: str = None,
+    created_at: str = "2023-01-01T00:00:00",
+    updated_at: str = "2023-01-01T00:00:00",
+    items: List = None
+) -> Order:
+    """Create a test order for use in tests.
+    
+    Args:
+        id: The order ID
+        title: The order title
+        description: The order description
+        status: The order status
+        created_at: The creation timestamp
+        updated_at: The last update timestamp
+        items: List of order items
+        
+    Returns:
+        A test Order object
+    """
+    if status is None:
+        status = DocumentStatus.DRAFT
+        
+    if items is None:
+        items = []
+        
+    return Order(
+        id=id,
+        title=title,
+        description=description,
+        status=status,
+        created_at=created_at,
+        updated_at=updated_at,
+        items=items
+    )

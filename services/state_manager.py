@@ -110,36 +110,40 @@ class StateManager:
         self._persist_state()
     
     def _persist_state(self) -> None:
-        """Persist the state to a file if persistence is enabled"""
+        """Persist state to file if persistence is enabled"""
         if not self._persistence_file:
             return
-        
-        # Create a serializable version of the state
-        serializable_state = {}
-        for key, value in self._state.items():
-            if isinstance(value, BaseModel):
-                serializable_state[key] = value.model_dump()
-            elif isinstance(value, datetime):
-                serializable_state[key] = value.isoformat()
-            else:
-                serializable_state[key] = value
         
         try:
             with open(self._persistence_file, 'w') as f:
+                # Convert state to JSON-serializable format
+                serializable_state = {}
+                for key, value in self._state.items():
+                    if isinstance(value, BaseModel):
+                        serializable_state[key] = value.dict()
+                    elif isinstance(value, datetime):
+                        serializable_state[key] = value.isoformat()
+                    else:
+                        serializable_state[key] = value
+                
                 json.dump(serializable_state, f)
         except Exception as e:
-            print(f"Error persisting state: {e}")
+            print(f"Error persisting state to file: {e}")
     
     def _load_state_from_file(self) -> None:
-        """Load state from the persistence file"""
-        if not self._persistence_file:
+        """Load state from persistence file"""
+        if not self._persistence_file or not os.path.exists(self._persistence_file):
             return
-        
-        with open(self._persistence_file, 'r') as f:
-            self._state = json.load(f)
+            
+        try:
+            with open(self._persistence_file, 'r') as f:
+                self._state = json.load(f)
+        except Exception as e:
+            print(f"Error loading state from file: {e}")
 
-# Create a singleton instance
-state_manager = StateManager()
+
+# Initialize global state_manager 
+state_manager = None
 
 def get_state_manager():
     """
@@ -149,7 +153,12 @@ def get_state_manager():
         StateManager: The singleton state manager instance
     """
     global state_manager
+    if state_manager is None:
+        state_manager = StateManager()
     return state_manager
+
+# Ensure state_manager is initialized
+state_manager = get_state_manager()
 
 # Export both the class, the getter, and the instance
 __all__ = ["StateManager", "state_manager", "get_state_manager"]

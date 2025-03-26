@@ -1,7 +1,7 @@
 # services/url_service.py
 from typing import Dict, Any, Optional, List
 import re
-from meta_routes import ALL_ROUTES
+from routes.meta_routes import ALL_ROUTES
 
 class URLService:
     """
@@ -10,13 +10,14 @@ class URLService:
     def __init__(self):
         self.route_map = {route.name: route for route in ALL_ROUTES}
         
-    def get_url_for_route(self, route_name: str, params: Optional[Dict[str, Any]] = None) -> str:
+    def get_url_for_route(self, route_name: str, params: Optional[Dict[str, Any]] = None, query_params: Optional[Dict[str, Any]] = None) -> str:
         """
         Generate a URL for a named route, with optional path parameters
         
         Args:
             route_name: Name of the route (defined in meta_routes.py)
             params: Dictionary of path parameters (if any)
+            query_params: Dictionary of query string parameters (if any)
             
         Returns:
             Formatted URL string
@@ -50,6 +51,11 @@ class URLService:
                 if placeholder in path:
                     path = path.replace(placeholder, str(value))
         
+        # Add query parameters if provided
+        if query_params and len(query_params) > 0:
+            query_string = "&".join([f"{key}={value}" for key, value in query_params.items()])
+            path = f"{path}?{query_string}"
+            
         return path
 
 # Create a singleton instance

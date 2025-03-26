@@ -302,13 +302,13 @@ class MaterialService:
                 message=f"Failed to create material: {str(e)}"
             )
     
-    def update_material(self, material_id: str, update_data: MaterialUpdate) -> Material:
+    def update_material(self, material_id: str, update_data: Union[MaterialUpdate, MaterialStatus]) -> Material:
         """
         Update a material with business logic validations.
         
         Args:
             material_id: The material ID or material number
-            update_data: The material update data
+            update_data: The material update data or just a MaterialStatus value
             
         Returns:
             The updated material
@@ -322,6 +322,11 @@ class MaterialService:
         try:
             # Check if material exists
             material = self.get_material(material_id)
+            
+            # Handle direct MaterialStatus value
+            if isinstance(update_data, MaterialStatus):
+                # Convert to MaterialUpdate
+                update_data = MaterialUpdate(status=update_data)
             
             # Validate status transition if status is being updated
             if update_data.status is not None and update_data.status != material.status:

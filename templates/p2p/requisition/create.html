@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-3">
+        <div class="col">
+            <h1>{% if requisition %}Edit Requisition{% else %}Create New Requisition{% endif %}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('requisition_list') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <!-- General errors display -->
+    {% if errors and errors.get('form') and errors.get('form').get('_general') %}
+    <div class="alert alert-danger">
+        {{ errors.get('form').get('_general') }}
+    </div>
+    {% endif %}
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ form_action }}" id="requisition-form">
+                {% if requisition %}
+                <!-- For updates, include the document number as hidden field -->
+                <input type="hidden" name="document_number" value="{{ requisition.document_number }}">
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Basic information section -->
+                        <h4>Basic Information</h4>
+                        
+                        <!-- Description field -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control {% if errors and errors.get('form') and errors.get('form').get('description') %}is-invalid{% endif %}" 
+                                   id="description" name="description" required 
+                                   value="{{ form_data.get('description') or (requisition.description if requisition else '') }}">
+                            {% if errors and errors.get('form') and errors.get('form').get('description') %}
+                            <div class="invalid-feedback">
+                                {{ errors.get('form').get('description') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Requester field -->
+                        <div class="mb-3">
+                            <label for="requester" class="form-label">Requester <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control {% if errors and errors.get('form') and errors.get('form').get('requester') %}is-invalid{% endif %}" 
+                                   id="requester" name="requester" required 
+                                   value="{{ form_data.get('requester') or (requisition.requester if requisition else '') }}">
+                            {% if errors and errors.get('form') and errors.get('form').get('requester') %}
+                            <div class="invalid-feedback">
+                                {{ errors.get('form').get('requester') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Department field -->
+                        <div class="mb-3">
+                            <label for="department" class="form-label">Department</label>
+                            <input type="text" class="form-control {% if errors and errors.get('form') and errors.get('form').get('department') %}is-invalid{% endif %}" 
+                                   id="department" name="department" 
+                                   value="{{ form_data.get('department') or (requisition.department if requisition else '') }}">
+                            {% if errors and errors.get('form') and errors.get('form').get('department') %}
+                            <div class="invalid-feedback">
+                                {{ errors.get('form').get('department') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Type field -->
+                        <div class="mb-3">
+                            <label for="type" class="form-label">Procurement Type <span class="text-danger">*</span></label>
+                            <select class="form-select {% if errors and errors.get('form') and errors.get('form').get('type') %}is-invalid{% endif %}" 
+                                    id="type" name="type" required>
+                                {% for type in procurement_types %}
+                                <option value="{{ type }}" 
+                                        {% if form_data.get('type') == type or (requisition and requisition.type == type) %}selected{% endif %}>
+                                    {{ type }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if errors and errors.get('form') and errors.get('form').get('type') %}
+                            <div class="invalid-feedback">
+                                {{ errors.get('form').get('type') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <!-- Additional information section -->
+                        <h4>Additional Information</h4>
+                        
+                        <!-- Notes field -->
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control {% if errors and errors.get('form') and errors.get('form').get('notes') %}is-invalid{% endif %}" 
+                                      id="notes" name="notes" rows="3">{{ form_data.get('notes') or (requisition.notes if requisition else '') }}</textarea>
+                            {% if errors and errors.get('form') and errors.get('form').get('notes') %}
+                            <div class="invalid-feedback">
+                                {{ errors.get('form').get('notes') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Urgent checkbox -->
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="urgent" name="urgent" 
+                                   {% if form_data.get('urgent') == 'on' or (requisition and requisition.urgent) %}checked{% endif %}>
+                            <label class="form-check-label" for="urgent">Mark as Urgent</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Items section -->
+                <h4 class="mt-4">Items</h4>
+                <div class="items-container">
+                    <table class="table table-bordered" id="items-table">
+                        <thead>
+                            <tr>
+                                <th width="5%">#</th>
+                                <th width="20%">Material</th>
+                                <th width="30%">Description <span class="text-danger">*</span></th>
+                                <th width="10%">Quantity <span class="text-danger">*</span></th>
+                                <th width="10%">Unit</th>
+                                <th width="10%">Price</th>
+                                <th width="10%">Currency</th>
+                                <th width="5%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-body">
+                            {% if requisition and requisition.items %}
+                                {% for item in requisition.items %}
+                                <tr class="item-row" data-index="{{ loop.index0 }}">
+                                    <td>
+                                        <span class="item-number">{{ loop.index }}</span>
+                                        <input type="hidden" name="item_number_{{ loop.index0 }}" value="{{ loop.index }}">
+                                    </td>
+                                    <td>
+                                        <select class="form-select" id="item_material_{{ loop.index0 }}" name="item_material_{{ loop.index0 }}">
+                                            <option value="">Select Material</option>
+                                            {% for material in materials %}
+                                            <option value="{{ material.material_number }}" 
+                                                    {% if item.material_number == material.material_number %}selected{% endif %}>
+                                                {{ material.material_number }} - {{ material.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == loop.index0 and item_error.errors.material_number %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.material_number }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_description_{{ loop.index0 }}" 
+                                               name="item_description_{{ loop.index0 }}" required
+                                               value="{{ item.description }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == loop.index0 and item_error.errors.description %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.description }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0.01" class="form-control" 
+                                               id="item_quantity_{{ loop.index0 }}" name="item_quantity_{{ loop.index0 }}" 
+                                               required value="{{ item.quantity }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == loop.index0 and item_error.errors.quantity %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.quantity }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_unit_{{ loop.index0 }}" 
+                                               name="item_unit_{{ loop.index0 }}" value="{{ item.unit }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" class="form-control" 
+                                               id="item_price_{{ loop.index0 }}" name="item_price_{{ loop.index0 }}" 
+                                               value="{{ item.price }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == loop.index0 and item_error.errors.price %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.price }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_currency_{{ loop.index0 }}" 
+                                               name="item_currency_{{ loop.index0 }}" value="{{ item.currency }}">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-item">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% elif form_data and form_data.get('item_description_0') %}
+                                {% set i = 0 %}
+                                {% while form_data.get('item_description_' + i|string) %}
+                                <tr class="item-row" data-index="{{ i }}">
+                                    <td>
+                                        <span class="item-number">{{ i + 1 }}</span>
+                                        <input type="hidden" name="item_number_{{ i }}" value="{{ i + 1 }}">
+                                    </td>
+                                    <td>
+                                        <select class="form-select" id="item_material_{{ i }}" name="item_material_{{ i }}">
+                                            <option value="">Select Material</option>
+                                            {% for material in materials %}
+                                            <option value="{{ material.material_number }}" 
+                                                    {% if form_data.get('item_material_' + i|string) == material.material_number %}selected{% endif %}>
+                                                {{ material.material_number }} - {{ material.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == i and item_error.errors.material_number %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.material_number }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_description_{{ i }}" 
+                                               name="item_description_{{ i }}" required
+                                               value="{{ form_data.get('item_description_' + i|string) }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == i and item_error.errors.description %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.description }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0.01" class="form-control" 
+                                               id="item_quantity_{{ i }}" name="item_quantity_{{ i }}" 
+                                               required value="{{ form_data.get('item_quantity_' + i|string) }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == i and item_error.errors.quantity %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.quantity }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_unit_{{ i }}" 
+                                               name="item_unit_{{ i }}" value="{{ form_data.get('item_unit_' + i|string) or 'EA' }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" class="form-control" 
+                                               id="item_price_{{ i }}" name="item_price_{{ i }}" 
+                                               value="{{ form_data.get('item_price_' + i|string) }}">
+                                        {% if errors and errors.get('items') %}
+                                            {% for item_error in errors.get('items') %}
+                                                {% if item_error.item_index == i and item_error.errors.price %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ item_error.errors.price }}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_currency_{{ i }}" 
+                                               name="item_currency_{{ i }}" value="{{ form_data.get('item_currency_' + i|string) or 'USD' }}">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-item">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% set i = i + 1 %}
+                                {% endwhile %}
+                            {% else %}
+                                <!-- Default empty item row -->
+                                <tr class="item-row" data-index="0">
+                                    <td>
+                                        <span class="item-number">1</span>
+                                        <input type="hidden" name="item_number_0" value="1">
+                                    </td>
+                                    <td>
+                                        <select class="form-select" id="item_material_0" name="item_material_0">
+                                            <option value="">Select Material</option>
+                                            {% for material in materials %}
+                                            <option value="{{ material.material_number }}">
+                                                {{ material.material_number }} - {{ material.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_description_0" 
+                                               name="item_description_0" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0.01" class="form-control" 
+                                               id="item_quantity_0" name="item_quantity_0" required value="1">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_unit_0" 
+                                               name="item_unit_0" value="EA">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" class="form-control" 
+                                               id="item_price_0" name="item_price_0" value="0">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" id="item_currency_0" 
+                                               name="item_currency_0" value="USD">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-item">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                    
+                    <div class="text-end mb-3">
+                        <button type="button" class="btn btn-success" id="add-item">
+                            Add Item
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-actions mt-4 text-end">
+                    <a href="{{ url_for('requisition_list') }}" class="btn btn-secondary me-2">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if requisition %}Update Requisition{% else %}Create Requisition{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-actions {
+        border-top: 1px solid #dee2e6;
+        padding-top: 1rem;
+    }
+    
+    .invalid-feedback.d-block {
+        display: block;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const itemsTable = document.getElementById('items-table');
+        const itemsBody = document.getElementById('items-body');
+        const addItemButton = document.getElementById('add-item');
+        
+        // Add new item row
+        addItemButton.addEventListener('click', function() {
+            const rows = itemsBody.querySelectorAll('.item-row');
+            const newIndex = rows.length;
+            const rowIndex = newIndex > 0 ? parseInt(rows[newIndex-1].getAttribute('data-index')) + 1 : 0;
+            
+            const newRow = document.createElement('tr');
+            newRow.className = 'item-row';
+            newRow.setAttribute('data-index', rowIndex);
+            
+            const materials = [];
+            {% for material in materials %}
+            materials.push({
+                material_number: "{{ material.material_number }}",
+                name: "{{ material.name }}"
+            });
+            {% endfor %}
+            
+            let materialOptions = '<option value="">Select Material</option>';
+            materials.forEach(material => {
+                materialOptions += `<option value="${material.material_number}">${material.material_number} - ${material.name}</option>`;
+            });
+            
+            newRow.innerHTML = `
+                <td>
+                    <span class="item-number">${newIndex + 1}</span>
+                    <input type="hidden" name="item_number_${rowIndex}" value="${newIndex + 1}">
+                </td>
+                <td>
+                    <select class="form-select" id="item_material_${rowIndex}" name="item_material_${rowIndex}">
+                        ${materialOptions}
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control" id="item_description_${rowIndex}" 
+                           name="item_description_${rowIndex}" required>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0.01" class="form-control" 
+                           id="item_quantity_${rowIndex}" name="item_quantity_${rowIndex}" required value="1">
+                </td>
+                <td>
+                    <input type="text" class="form-control" id="item_unit_${rowIndex}" 
+                           name="item_unit_${rowIndex}" value="EA">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" class="form-control" 
+                           id="item_price_${rowIndex}" name="item_price_${rowIndex}" value="0">
+                </td>
+                <td>
+                    <input type="text" class="form-control" id="item_currency_${rowIndex}" 
+                           name="item_currency_${rowIndex}" value="USD">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-item">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            itemsBody.appendChild(newRow);
+            updateItemNumbers();
+            
+            // Add event listener to the new remove button
+            const removeButton = newRow.querySelector('.remove-item');
+            removeButton.addEventListener('click', handleRemoveItem);
+        });
+        
+        // Remove item row
+        function handleRemoveItem() {
+            const row = this.closest('.item-row');
+            const rows = itemsBody.querySelectorAll('.item-row');
+            
+            // Don't remove if it's the only row
+            if (rows.length > 1) {
+                row.remove();
+                updateItemNumbers();
+            } else {
+                alert('At least one item is required.');
+            }
+        }
+        
+        // Add event listeners to existing remove buttons
+        document.querySelectorAll('.remove-item').forEach(button => {
+            button.addEventListener('click', handleRemoveItem);
+        });
+        
+        // Update item numbers
+        function updateItemNumbers() {
+            const rows = itemsBody.querySelectorAll('.item-row');
+            rows.forEach((row, index) => {
+                row.querySelector('.item-number').textContent = index + 1;
+            });
+        }
+        
+        // Form validation
+        document.getElementById('requisition-form').addEventListener('submit', function(event) {
+            const form = event.target;
+            
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            form.classList.add('was-validated');
+        });
+        
+        // Material selection updates description if empty
+        document.querySelectorAll('[id^="item_material_"]').forEach(select => {
+            select.addEventListener('change', function() {
+                const index = this.id.replace('item_material_', '');
+                const descriptionField = document.getElementById(`item_description_${index}`);
+                
+                // Only update if description is empty
+                if (descriptionField.value.trim() === '') {
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (selectedOption.value) {
+                        const materialName = selectedOption.text.split(' - ')[1];
+                        descriptionField.value = materialName;
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

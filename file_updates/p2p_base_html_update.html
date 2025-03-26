@@ -1,0 +1,15 @@
+<!-- P2P Navigation - Updated for v1.7 -->
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle {% if request.url.path.startswith('/p2p') %}active{% endif %}" 
+       href="#" id="p2pDropdown" role="button" 
+       data-bs-toggle="dropdown" aria-expanded="false">
+        Procurement
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="p2pDropdown">
+        <li><a class="dropdown-item" href="{{ url_for('requisition_list') }}">Requisitions</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('requisition_create_form') }}">Create Requisition</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('order_list') }}">Purchase Orders</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('order_create_form') }}">Create Order</a></li>
+    </ul>
+</li>

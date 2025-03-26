@@ -1,0 +1,527 @@
+Folder PATH listing for volume Windows-SSD
+Volume serial number is 80E2-4F82
+C:\USERS\BANER\COPYFOLDER\IOT_THOUGHTS\PYTHON-PROJECTS\KAGGLE_EXPERIMENTS\CURSOR_PROJECTS\MINI_META_HARNESS
+|   .cursorrules
+|   .cursorrules.json
+|   .gitignore
+|   analyze_code_compliance.py
+|   API_TEST_FIXES.md
+|   app_files.txt
+|   async_test_issues_summary.md
+|   check_imports.py
+|   check_monitor_health.py
+|   code_compliance_report.md
+|   create_symlink.py
+|   datetime_import_diagnostic.py
+|   datetime_import_issue.md
+|   datetime_import_issue_summary.md
+|   dependency_analyzer.py
+|   direct_fix.py
+|   file_list.py
+|   fix_all_tests.py
+|   fix_api_tests.py
+|   fix_datetime_import.py
+|   fix_indentation.py
+|   fix_indentation_systematic.py
+|   fix_integration_test.py
+|   fix_logging_indent.py
+|   fix_paths.py
+|   fix_syntax.py
+|   fix_test_compliance.py
+|   fix_test_files.py
+|   fix_test_imports.log
+|   fix_test_imports.py
+|   fix_test_imports_new.py
+|   fix_test_indentation.py
+|   fix_timestamp_method.py
+|   import_diagnostic.py
+|   IMPORT_FIX_SUMMARY.md
+|   import_path_diagnostic.py
+|   indentation_fix.log
+|   list_api_tests.py
+|   main.py
+|   meta_routes.py
+|   monitor_health_fix.md
+|   monitor_service_fix.md
+|   path_conflict_fix.md
+|   pytest.ini
+|   remove_setup_teardown.py
+|   requirements.txt
+|   revert_import_helper.py
+|   revised-readme.md
+|   router_builder.py
+|   run_diagnostics.py
+|   services_import_fix.md
+|   service_initializer.py
+|   SetProjEnv.ps1
+|   settings.py
+|   simplified_conftest.py
+|   simplified_import_helper.py
+|   template_integration.md
+|   test_diagnostic.py
+|   test_files.txt
+|   test_file_prep.md
+|   test_fix_integration.py
+|   test_generation_summary.md
+|   test_import_fix.py
+|   test_improvement_backlog.md
+|   test_original_file.py
+|   test_results.md
+|   test_results_summary.md
+|   test_setup.py
+|   test_snippet_backlog.md
+|   test_structure.json
+|   test_with_all_issues.py
+|   validate_error_fix.py
+|   
++---.notes
+|       codebase_architecture.md
+|       correct_import_patterns.md
+|       dirs_5.txt
+|       facade_implementation_plan.md
+|       facade_implementation_status.md
+|       last_set_of_recommendations.md
+|       mini-meta-tracker-v1.6.md
+|       python-package-interface-consolidation.md
+|       revised-testing-readme.md
+|       sap-test-harness-overview.md
+|       session_integration_plan.md
+|       test_file_prep.md
+|       test_fixes_v1.md
+|       test_improvement_backlog.md
+|       test_infrastructure_analysis.md
+|       v1-7-plan-v2.md
+|       
++---api
+|   |   test_diagnostic.py
+|   |   test_p2p_requisition_api.py
+|   |   __init__.py
+|   |   
+|   \---routes
+|           material.py
+|           monitoring.py
+|           __init__.py
+|           
++---ConfTest
+|       GenConfTest.py
+|       genconftest_templates.py
+|       genconftest_utils.py
+|       SnippetForTests.py
+|       Snippets_readme.md
+|       test_snippet_template.py
+|       
++---controllers
+|       dashboard_controller.py
+|       error_test_controller.py
+|       material_api_controller.py
+|       material_api_helpers.py
+|       material_common.py
+|       material_controller.py
+|       material_controller_helpers.py
+|       material_ui_controller.py
+|       monitor_controller.py
+|       monitor_controller.py.bak
+|       p2p_common.py
+|       p2p_controller.py
+|       p2p_order_api_controller.py
+|       p2p_order_common.py
+|       p2p_order_ui_controller.py
+|       p2p_requisition_api_controller.py
+|       p2p_requisition_common.py
+|       p2p_requisition_ui_controller.py
+|       session_utils.py
+|       __init__.py
+|       
++---docs
+|       test_file_indentation_guide.md
+|       test_file_template.py
+|       
++---file_updates
+|       controllers-init.py
+|       dashboard-controller.py
+|       main-py.py
+|       material-detail-template.html
+|       p2p_base_html_update.html
+|       
++---middleware
+|       session.py
+|       __init__.py
+|       
++---models
+|       common.py
+|       material.py
+|       p2p.py
+|       p2p_helper.py
+|       __init__.py
+|       
++---monitoring
+|       diagnose_datetime_issue.py
+|       fix_indentation.py
+|       patch_datetime.py
+|       
++---routes
+|       http_method.py
+|       meta_routes.py
+|       __init__.py
+|       
++---services
+|       base_service.py
+|       check_imports.py
+|       material_error_handlers.py
+|       material_service.py
+|       material_service_helpers.py
+|       monitor_core.py
+|       monitor_errors.py
+|       monitor_health - Copy.py
+|       monitor_health.py
+|       monitor_health.py.bak
+|       monitor_health_helpers.py
+|       monitor_helpers.py
+|       monitor_metrics.py
+|       monitor_service.py
+|       p2p_service.py
+|       p2p_service_helpers.py
+|       p2p_service_order.py
+|       p2p_service_requisition.py
+|       state_manager.py
+|       template_service.py
+|       url_service.py
+|       __init__.py
+|       
++---syntax_backups_20250323_025048
++---templates
+|   |   base.html
+|   |   dashboard.html
+|   |   __init__.py
+|   |   
+|   +---material
+|   |       create.html
+|   |       detail.html
+|   |       list.html
+|   |       
+|   \---p2p
+|       +---order
+|       |       create.html
+|       |       detail.html
+|       |       list.html
+|       |       
+|       \---requisition
+|               create.html
+|               detail.html
+|               list.html
+|               
++---temp_fixed_tests
+|       test_error_integration.py
+|       test_material_p2p_integration.py
+|       
++---tests-dest
+|   \---api
+|           test_env_diagnostic.py
+|           
++---tests_dest
+|   |   check_module.py
+|   |   check_monitor_health.py
+|   |   check_path.py
+|   |   client_host_diagnostic_results.json
+|   |   code_snippet_for_test_files.py
+|   |   code_snippet_for_test_files.py.bak
+|   |   conftest.py
+|   |   conftest_test_integration_diagnostic.py
+|   |   diagnostic_test.py
+|   |   error_handler_test.py
+|   |   fix_indent.py
+|   |   fix_single_file.py
+|   |   fix_timestamp_method.py
+|   |   import_diagnostic.py
+|   |   import_helper.py
+|   |   pytest.ini
+|   |   README.md
+|   |   service_initialization_diagnostic.py
+|   |   simple_conftest.py
+|   |   standalone_error_test.py
+|   |   test_conftest_verification.py
+|   |   test_facade_diagnostic.py
+|   |   test_import_helper.py
+|   |   test_import_helper.py.bak
+|   |   test_output.txt
+|   |   test_path_fixer.py
+|   |   __init__.py
+|   |   
+|   +---api
+|   |       controller_session_diagnostic.py
+|   |       controller_session_diagnostic.py.bak
+|   |       pytest_env_plugin.py
+|   |       pytest_env_plugin.py.bak
+|   |       simplified_material_test.py
+|   |       test_api_diagnostic.py
+|   |       test_api_diagnostic.py.bak
+|   |       test_asyncio_diagnostic.py
+|   |       test_asyncio_diagnostic.py.bak
+|   |       test_controller_diagnostic.py
+|   |       test_controller_diagnostic.py.bak
+|   |       test_dashboard_diagnostic.py
+|   |       test_dashboard_diagnostic.py.bak
+|   |       test_datetime_import_diagnostic.py
+|   |       test_datetime_import_diagnostic.py.bak
+|   |       test_dependency_diagnostic.py
+|   |       test_dependency_diagnostic.py.bak
+|   |       test_dependency_edge_cases.py
+|   |       test_dependency_edge_cases.py.bak
+|   |       test_dependency_unwrap.py
+|   |       test_dependency_unwrap.py.bak
+|   |       test_diagnostic_summary.py
+|   |       test_diagnostic_summary.py.bak
+|   |       test_env_diagnostic.py
+|   |       test_env_diagnostic.py.bak
+|   |       test_error_handling_diagnostic.py
+|   |       test_error_handling_diagnostic.py.bak
+|   |       test_fastapi_parameter_extraction.py
+|   |       test_get_material_mock.py
+|   |       test_header_template.py
+|   |       test_header_template.py.bak
+|   |       test_helpers.py
+|   |       test_helpers.py.bak
+|   |       test_import_diagnostic.py
+|   |       test_import_diagnostic.py.bak
+|   |       test_main.py
+|   |       test_main.py.bak
+|   |       test_material_controller.py
+|   |       test_material_controller.py.bak
+|   |       test_meta_routes.py
+|   |       test_meta_routes.py.bak
+|   |       test_minimal_async.py
+|   |       test_minimal_async.py.bak
+|   |       test_monitor_diagnostic.py
+|   |       test_monitor_diagnostic.py.bak
+|   |       test_p2p_order_api.py
+|   |       test_p2p_order_api.py.bak
+|   |       test_p2p_order_api_diagnostics.py
+|   |       test_p2p_order_ui.py
+|   |       test_p2p_order_ui.py.bak
+|   |       test_p2p_requisition_api.py
+|   |       test_p2p_requisition_api.py.bak
+|   |       test_p2p_requisition_ui.py
+|   |       test_p2p_requisition_ui.py.bak
+|   |       test_patch_diagnostic.py
+|   |       test_patch_diagnostic.py.bak
+|   |       test_recommended_approach.py
+|   |       test_recommended_approach.py.bak
+|   |       test_recommended_approach.py.new
+|   |       test_session_diagnostics.py
+|   |       test_session_integration.py
+|   |       test_session_integration.py.bak
+|   |       test_session_integration.py.new
+|   |       test_session_integration_fixed.py
+|   |       test_session_integration_fixed.py.bak
+|   |       test_sync_async_boundary.py
+|   |       __init__.py
+|   |       __init__.py.bak
+|   |       
+|   +---diagnostic
+|   |   |   p2p_controller_import_diagnostic.py
+|   |   |   test_order_create_diagnostic.py
+|   |   |   test_p2p_controller_diagnosis.py
+|   |   |   test_redirect_patching.py
+|   |   |   test_simplified_p2p_workflow.py
+|   |   |   
+|   |   \---debug
+|   |           test_create_order_focused.py
+|   |           test_fastapi_form.py
+|   |           test_form_data.py
+|   |           
+|   +---diagnostics
+|   |       test_service_imports_completeness.py
+|   |       
+|   +---helpers
+|   |       patched_request_client.py
+|   |       patched_testclient.py
+|   |       test_context.py
+|   |       test_context.py.bak
+|   |       test_fixtures.py
+|   |       test_fixtures.py.bak
+|   |       __init__.py
+|   |       
+|   +---integration
+|   |   |   test_error_integration.py
+|   |   |   test_error_integration.py.bak
+|   |   |   test_integration.py
+|   |   |   test_integration.py.bak
+|   |   |   test_material_p2p_integration.py
+|   |   |   test_material_p2p_integration.py.bak
+|   |   |   test_monitor_service_integration.py
+|   |   |   test_monitor_service_integration.py.bak
+|   |   |   test_p2p_imports_diagnostic.py
+|   |   |   test_p2p_material_integration.py
+|   |   |   test_p2p_service_initialization.py
+|   |   |   test_p2p_workflow.py
+|   |   |   test_service_factory_integration.py
+|   |   |   test_service_factory_integration.py.bak
+|   |   |   test_service_integration.py
+|   |   |   test_service_integration.py.bak
+|   |   |   __init__.py
+|   |   |   
+|   |   \---services
+|   |           test_error_propagation.py
+|   |           test_material_p2p_integration.py
+|   |           test_monitor_service_integration.py
+|   |           test_service_registry.py
+|   |           __init__.py
+|   |           
+|   +---models_tests
+|   |       test_material_models.py
+|   |       test_material_models.py.bak
+|   |       test_p2p_models.py
+|   |       test_p2p_models.py.bak
+|   |       __init__.py
+|   |       
+|   +---monitoring
+|   |       client_host_analysis.md
+|   |       fix_client_host_in_tests.py
+|   |       patch_controller.py
+|   |       patch_datetime.py
+|   |       reproduce_client_host_issue.py
+|   |       test_client_diagnostic.py
+|   |       test_client_diagnostic.py.bak
+|   |       test_client_host_fix_diagnostic.py
+|   |       test_client_host_fix_diagnostic.py.bak
+|   |       test_client_host_solution.py
+|   |       test_client_host_solution.py.bak
+|   |       test_monitor_controller.py
+|   |       test_monitor_controller.py.bak
+|   |       test_monitor_controller_diagnostic.py
+|   |       test_monitor_controller_diagnostic.py.bak
+|   |       test_monitor_request_diagnostic.py
+|   |       test_monitor_request_diagnostic.py.bak
+|   |       __init__.py
+|   |       
+|   +---services_tests
+|   |       test_material_service.py
+|   |       test_material_service.py.bak
+|   |       test_monitor_service.py
+|   |       test_monitor_service.py.bak
+|   |       test_p2p_order_service.py
+|   |       test_p2p_order_service.py.bak
+|   |       test_p2p_requisition_service.py
+|   |       test_p2p_requisition_service.py.bak
+|   |       test_p2p_service.py
+|   |       test_p2p_service.py.bak
+|   |       test_p2p_service_basic.py
+|   |       test_p2p_service_basic.py.bak
+|   |       __init__.py
+|   |       
+|   +---test_helpers
+|   |       fix_indentation.py
+|   |       imports_diagnostic.py
+|   |       README.md
+|   |       request_helpers.py
+|   |       service_imports.py
+|   |       status_check.py
+|   |       test_fixtures.py
+|   |       test_requisition_item.py
+|   |       __init__.py
+|   |       
+|   \---unit
+|           session_debug.py
+|           test_base_controller.py
+|           test_base_controller.py.bak
+|           test_base_service.py
+|           test_dashboard_controller.py
+|           test_dashboard_controller.py.bak
+|           test_error_utils.py
+|           test_error_utils.py.bak
+|           test_models_common.py
+|           test_models_common.py.bak
+|           test_p2p_common.py
+|           test_p2p_order_common.py
+|           test_p2p_requisition_common.py
+|           test_session_cookie_integration.py
+|           test_session_integration_diagnostic.py
+|           test_session_middleware.py
+|           test_session_middleware_diagnostic.py
+|           test_state_manager.py
+|           test_state_manager.py.bak
+|           test_template_service.py
+|           test_template_service.py.bak
+|           test_url_service.py
+|           test_url_service.py.bak
+|           __init__.py
+|           
++---test_file_backups
++---test_import_backups_20250323_015749
++---test_import_backups_20250323_015812
+|   \---tests_dest
+|       \---api
+|               test_material_controller.py
+|               
++---test_import_backups_20250323_015913
++---test_import_backups_20250323_020015
+|       test_original_file.py
+|       
++---test_import_backups_20250323_020122
++---test_import_backups_20250323_020218
+|       test_with_all_issues.py
+|       
++---test_import_backups_20250323_021102
+|   \---tests_dest
+|       \---api
+|               test_dependency_diagnostic.py
+|               test_dependency_edge_cases.py
+|               test_dependency_unwrap.py
+|               test_diagnostic_summary.py
+|               test_env_diagnostic.py
+|               test_header_template.py
+|               test_main.py
+|               test_meta_routes.py
+|               test_monitor_diagnostic.py
+|               test_p2p_order_api.py
+|               test_p2p_order_ui.py
+|               test_p2p_requisition_api.py
+|               test_p2p_requisition_ui.py
+|               test_patch_diagnostic.py
+|               test_recommended_approach.py
+|               test_session_integration.py
+|               test_session_integration_fixed.py
+|               
++---test_import_backups_20250323_022909
+|   \---tests_dest
+|       \---api
+|               controller_session_diagnostic.py
+|               
++---test_import_backups_20250323_023009
+|   \---tests_dest
+|       \---api
+|               controller_session_diagnostic.py
+|               pytest_env_plugin.py
+|               test_api_diagnostic.py
+|               test_asyncio_diagnostic.py
+|               test_controller_diagnostic.py
+|               test_dashboard_diagnostic.py
+|               test_datetime_import_diagnostic.py
+|               test_dependency_diagnostic.py
+|               test_dependency_edge_cases.py
+|               test_dependency_unwrap.py
+|               test_diagnostic_summary.py
+|               test_env_diagnostic.py
+|               test_error_handling_diagnostic.py
+|               test_header_template.py
+|               test_helpers.py
+|               test_import_diagnostic.py
+|               test_main.py
+|               test_material_controller.py
+|               test_meta_routes.py
+|               test_minimal_async.py
+|               test_monitor_diagnostic.py
+|               test_p2p_order_api.py
+|               test_p2p_order_ui.py
+|               test_p2p_requisition_api.py
+|               test_p2p_requisition_ui.py
+|               test_patch_diagnostic.py
+|               test_recommended_approach.py
+|               test_session_integration.py
+|               test_session_integration_fixed.py
+|               __init__.py
+|               
+\---utils
+        error_utils.py
+        __init__.py
+        

@@ -62,7 +62,7 @@ class ErrorsQueryParams(BaseModel):
 
 async def api_health_check(request: Request, monitor_service_param = None):
     """
-    API endpoint for health check.
+    Perform a health check (API endpoint).
     
     Args:
         request: FastAPI request
@@ -78,7 +78,7 @@ async def api_health_check(request: Request, monitor_service_param = None):
         service = monitor_service_param if monitor_service_param is not None else monitor_service
         
         # Perform health check
-        health_data = service.check_system_health()
+        health_data = service.check_health()
         logger.info(f"Health check completed with status: {health_data['status']}")
         
         # Determine response status code based on health status

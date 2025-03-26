@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-3">
+        <div class="col">
+            <h1>{{ title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('order_list') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <!-- Status messages -->
+    {% if request.query_params.get('error') %}
+    <div class="alert alert-danger">
+        {{ request.query_params.get('error') }}
+    </div>
+    {% endif %}
+    
+    {% if request.query_params.get('message') %}
+    <div class="alert alert-success">
+        {{ request.query_params.get('message') }}
+    </div>
+    {% endif %}
+    
+    <!-- Error display -->
+    {% if errors %}
+        {% if errors.form %}
+        <div class="alert alert-danger">
+            <h5>Please correct the following errors:</h5>
+            <ul>
+                {% for field, error in errors.form.items() %}
+                <li><strong>{{ field }}</strong>: {{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    {% endif %}
+    
+    <div class="card">
+        <div class="card-body">
+            <!-- If creating from requisition, show requisition info -->
+            {% if requisition %}
+            <div class="alert alert-info">
+                <h5>Creating order from Requisition: {{ requisition.document_number }}</h5>
+                <p><strong>Description:</strong> {{ requisition.description }}</p>
+                <p><strong>Requester:</strong> {{ requisition.requester }}</p>
+                <p><strong>Department:</strong> {{ requisition.department or 'Not specified' }}</p>
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="{{ form_action }}" id="order-form">
+                <!-- Hidden field for requisition reference if creating from requisition -->
+                {% if requisition %}
+                <input type="hidden" name="from_requisition" value="{{ requisition.document_number }}">
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Basic information section -->
+                        <h4>Basic Information</h4>
+                        
+                        <!-- Description field -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control {% if errors and errors.form and errors.form.description %}is-invalid{% endif %}" 
+                                   id="description" name="description" required 
+                                   value="{{ form_data.get('description') or (order.description if order else (requisition.description if requisition else '')) }}">
+                            {% if errors and errors.form and errors.form.description %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.description }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Requester field -->
+                        <div class="mb-3">
+                            <label for="requester" class="form-label">Requester <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control {% if errors and errors.form and errors.form.requester %}is-invalid{% endif %}" 
+                                   id="requester" name="requester" required 
+                                   value="{{ form_data.get('requester') or (order.requester if order else (requisition.requester if requisition else '')) }}">
+                            {% if errors and errors.form and errors.form.requester %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.requester }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Vendor field -->
+                        <div class="mb-3">
+                            <label for="vendor" class="form-label">Vendor <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control {% if errors and errors.form and errors.form.vendor %}is-invalid{% endif %}" 
+                                   id="vendor" name="vendor" required 
+                                   value="{{ form_data.get('vendor') or (order.vendor if order else '') }}">
+                            {% if errors and errors.form and errors.form.vendor %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.vendor }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Payment terms field -->
+                        <div class="mb-3">
+                            <label for="payment_terms" class="form-label">Payment Terms</label>
+                            <input type="text" class="form-control {% if errors and errors.form and errors.form.payment_terms %}is-invalid{% endif %}" 
+                                   id="payment_terms" name="payment_terms" 
+                                   value="{{ form_data.get('payment_terms') or (order.payment_terms if order else '') }}">
+                            {% if errors and errors.form and errors.form.payment_terms %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.payment_terms }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <!-- Additional information section -->
+                        <h4>Additional Information</h4>
+                        
+                        <!-- Type field -->
+                        <div class="mb-3">
+                            <label for="type" class="form-label">Order Type <span class="text-danger">*</span></label>
+                            <select class="form-select {% if errors and errors.form and errors.form.type %}is-invalid{% endif %}" 
+                                    id="type" name="type" required>
+                                {% for type in procurement_types %}
+                                <option value="{{ type }}" 
+                                        {% if form_data.get('type') == type or (order and order.type == type) or (requisition and requisition.type == type) %}selected{% endif %}>
+                                    {{ type }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if errors and errors.form and errors.form.type %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.type }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Notes field -->
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control {% if errors and errors.form and errors.form.notes %}is-invalid{% endif %}" 
+                                      id="notes" name="notes" rows="3">{{ form_data.get('notes') or (order.notes if order else (requisition.notes if requisition else '')) }}</textarea>
+                            {% if errors and errors.form and errors.form.notes %}
+                            <div class="invalid-feedback">
+                                {{ errors.form.notes }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Urgent checkbox -->
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="urgent" name="urgent" 
+                                   {% if form_data.get('urgent') or (order and order.urgent) or (requisition and requisition.urgent) %}checked{% endif %}>
+                            <label class="form-check-label" for="urgent">Mark as Urgent</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Items section - Only show if not creating from requisition -->
+                {% if not requisition %}
+                <h4 class="mt-4">Order Items</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="items-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Material</th>
+                                <th>Description <span class="text-danger">*</span></th>
+                                <th>Quantity <span class="text-danger">*</span></th>
+                                <th>Unit</th>
+                                <th>Price <span class="text-danger">*</span></th>
+                                <th>Currency</th>
+                                <th>Delivery Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-container">
+                            <!-- If editing, display existing items -->
+                            {% if order and order.items %}
+                                {% for item in order.items %}
+                                <tr class="item-row">
+                                    <td class="item-number">{{ loop.index }}</td>
+                                    <td>
+                                        <select class="form-select form-select-sm" name="item_material_{{ loop.index0 }}">
+                                            <option value="">-- Select Material --</option>
+                                            {% for material in materials %}
+                                            <option value="{{ material.material_number }}" 
+                                                    {% if item.material_number == material.material_number %}selected{% endif %}>
+                                                {{ material.material_number }} - {{ material.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_description_{{ loop.index0 }}" required 
+                                               value="{{ item.description }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" 
+                                               name="item_quantity_{{ loop.index0 }}" required 
+                                               value="{{ item.quantity }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_unit_{{ loop.index0 }}" 
+                                               value="{{ item.unit }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" 
+                                               name="item_price_{{ loop.index0 }}" required 
+                                               value="{{ item.price }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_currency_{{ loop.index0 }}" 
+                                               value="{{ item.currency }}">
+                                    </td>
+                                    <td>
+                                        <input type="date" class="form-control form-control-sm" 
+                                               name="item_delivery_date_{{ loop.index0 }}" 
+                                               value="{{ item.delivery_date.isoformat() if item.delivery_date else '' }}">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-item">Remove</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            <!-- For new orders, display empty rows --> 
+                            {% else %}
+                                {% for item in initial_items %}
+                                <tr class="item-row">
+                                    <td class="item-number">{{ loop.index }}</td>
+                                    <td>
+                                        <select class="form-select form-select-sm" name="item_material_{{ loop.index0 }}">
+                                            <option value="">-- Select Material --</option>
+                                            {% for material in materials %}
+                                            <option value="{{ material.material_number }}">
+                                                {{ material.material_number }} - {{ material.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_description_{{ loop.index0 }}" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" 
+                                               name="item_quantity_{{ loop.index0 }}" required value="1">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_unit_{{ loop.index0 }}" value="EA">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" 
+                                               name="item_price_{{ loop.index0 }}" required value="0">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               name="item_currency_{{ loop.index0 }}" value="USD">
+                                    </td>
+                                    <td>
+                                        <input type="date" class="form-control form-control-sm" 
+                                               name="item_delivery_date_{{ loop.index0 }}">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-item">Remove</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="9">
+                                    <button type="button" class="btn btn-success btn-sm" id="add-item">
+                                        Add Item
+                                    </button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                
+                <!-- Display item-specific errors -->
+                {% if errors and errors.items %}
+                <div class="alert alert-danger mt-2">
+                    <h5>Item Errors:</h5>
+                    <ul>
+                        {% for item_error in errors.items %}
+                        <li>
+                            <strong>Item {{ item_error.item_number }}:</strong>
+                            <ul>
+                                {% for field, error in item_error.errors.items() %}
+                                <li>{{ field }}: {{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% endif %}
+                
+                <div class="form-actions mt-4 text-end">
+                    <a href="{{ url_for('order_list') }}" class="btn btn-secondary me-2">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if order %}Update Order{% else %}Create Order{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Template for new item row (used by JavaScript) -->
+<template id="item-template">
+    <tr class="item-row">
+        <td class="item-number"></td>
+        <td>
+            <select class="form-select form-select-sm" name="item_material_INDEX">
+                <option value="">-- Select Material --</option>
+                {% for material in materials %}
+                <option value="{{ material.material_number }}">
+                    {{ material.material_number }} - {{ material.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm" 
+                   name="item_description_INDEX" required>
+        </td>
+        <td>
+            <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" 
+                   name="item_quantity_INDEX" required value="1">
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm" 
+                   name="item_unit_INDEX" value="EA">
+        </td>
+        <td>
+            <input type="number" step="0.01" min="0" class="form-control form-control-sm" 
+                   name="item_price_INDEX" required value="0">
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm" 
+                   name="item_currency_INDEX" value="USD">
+        </td>
+        <td>
+            <input type="date" class="form-control form-control-sm" 
+                   name="item_delivery_date_INDEX">
+        </td>
+        <td>
+            <button type="button" class="btn btn-danger btn-sm remove-item">Remove</button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const itemsContainer = document.getElementById('items-container');
+        const addItemButton = document.getElementById('add-item');
+        const itemTemplate = document.getElementById('item-template');
+        
+        // Only initialize if we're not creating from requisition
+        if (itemsContainer && addItemButton && itemTemplate) {
+            // Add item button click handler
+            addItemButton.addEventListener('click', function() {
+                addNewItem();
+            });
+            
+            // Initial bind of remove buttons
+            bindRemoveButtons();
+            
+            // Add a new item row to the table
+            function addNewItem() {
+                // Get current number of items
+                const currentItemCount = document.querySelectorAll('.item-row').length;
+                
+                // Clone the template content
+                const newRow = document.importNode(itemTemplate.content, true).querySelector('tr');
+                
+                // Update the item number
+                newRow.querySelector('.item-number').textContent = currentItemCount + 1;
+                
+                // Update the input names with the correct index
+                const inputs = newRow.querySelectorAll('[name]');
+                inputs.forEach(input => {
+                    input.name = input.name.replace('INDEX', currentItemCount);
+                });
+                
+                // Add the new row to the container
+                itemsContainer.appendChild(newRow);
+                
+                // Bind the remove button
+                bindRemoveButtons();
+            }
+            
+            // Bind remove buttons to all rows
+            function bindRemoveButtons() {
+                const removeButtons = document.querySelectorAll('.remove-item');
+                removeButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        if (document.querySelectorAll('.item-row').length > 1) {
+                            const row = this.closest('.item-row');
+                            row.remove();
+                            
+                            // Update item numbers
+                            updateItemNumbers();
+                        } else {
+                            alert("Cannot remove the last item. Orders must have at least one item.");
+                        }
+                    });
+                });
+            }
+            
+            // Update item numbers after removing an item
+            function updateItemNumbers() {
+                const itemRows = document.querySelectorAll('.item-row');
+                itemRows.forEach((row, index) => {
+                    // Update displayed number
+                    row.querySelector('.item-number').textContent = index + 1;
+                    
+                    // Update input names
+                    const inputs = row.querySelectorAll('[name]');
+                    inputs.forEach(input => {
+                        const nameParts = input.name.split('_');
+                        const suffix = nameParts.pop();
+                        const newName = nameParts.join('_') + '_' + index;
+                        input.name = newName;
+                    });
+                });
+            }
+            
+            // Material selection handler - auto-populate description from material
+            const materialSelects = document.querySelectorAll('select[name^="item_material_"]');
+            materialSelects.forEach(select => {
+                select.addEventListener('change', function() {
+                    // Get the selected option
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (selectedOption.value) {
+                        // Get material name from the option text (format: "MAT123 - Material Name")
+                        const materialName = selectedOption.text.split(' - ')[1].trim();
+                        
+                        // Get row and update description field if it's empty
+                        const row = this.closest('.item-row');
+                        const descriptionInput = row.querySelector('input[name^="item_description_"]');
+                        if (descriptionInput && !descriptionInput.value) {
+                            descriptionInput.value = materialName;
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Form validation
+        const orderForm = document.getElementById('order-form');
+        if (orderForm) {
+            orderForm.addEventListener('submit', function(event) {
+                if (!orderForm.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    // Show a message at the top
+                    const errorAlert = document.createElement('div');
+                    errorAlert.className = 'alert alert-danger';
+                    errorAlert.textContent = 'Please fill in all required fields marked with * before submitting.';
+                    
+                    // Insert at the top of the form
+                    orderForm.insertBefore(errorAlert, orderForm.firstChild);
+                    
+                    // Auto-remove after 5 seconds
+                    setTimeout(() => {
+                        errorAlert.remove();
+                    }, 5000);
+                }
+                
+                orderForm.classList.add('was-validated');
+            });
+        }
+    });
+</script>
+
+<style>
+    .form-actions {
+        border-top: 1px solid #dee2e6;
+        padding-top: 1rem;
+    }
+    
+    #items-table th {
+        background-color: #f8f9fa;
+    }
+    
+    .was-validated .form-control:invalid {
+        border-color: #dc3545;
+        padding-right: calc(1.5em + 0.75rem);
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+</style>
+{% endblock %}

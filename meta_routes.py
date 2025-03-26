@@ -24,7 +24,7 @@ class RouteDefinition(NamedTuple):
     template: Optional[str] = None
 
 #
-# 3. ALL_ROUTES for the v1.6 SAP Test Harness
+# 3. ALL_ROUTES for the v1.7 SAP Test Harness
 #
 ALL_ROUTES: List[RouteDefinition] = [
     # Dashboard routes
@@ -129,6 +129,224 @@ ALL_ROUTES: List[RouteDefinition] = [
         path="/api/v1/materials/{material_id}/deprecate",
         methods=[HttpMethod.POST],
         controller="controllers.material_controller.api_deprecate_material",
+        template=None
+    ),
+    
+    # P2P Requisition UI Routes
+    RouteDefinition(
+        name="requisition_list",
+        path="/p2p/requisitions",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.list_requisitions",
+        template="p2p/requisition/list.html"
+    ),
+    RouteDefinition(
+        name="requisition_create_form",
+        path="/p2p/requisitions/create",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.create_requisition_form",
+        template="p2p/requisition/create.html"
+    ),
+    RouteDefinition(
+        name="requisition_create",
+        path="/p2p/requisitions/create",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.create_requisition",
+        template="p2p/requisition/create.html"
+    ),
+    RouteDefinition(
+        name="requisition_detail",
+        path="/p2p/requisitions/{document_number}",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.get_requisition",
+        template="p2p/requisition/detail.html"
+    ),
+    RouteDefinition(
+        name="requisition_update_form",
+        path="/p2p/requisitions/{document_number}/edit",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.update_requisition_form",
+        template="p2p/requisition/create.html"
+    ),
+    RouteDefinition(
+        name="requisition_update",
+        path="/p2p/requisitions/{document_number}/edit",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.update_requisition",
+        template="p2p/requisition/create.html"
+    ),
+    
+    # P2P Order UI Routes
+    RouteDefinition(
+        name="order_list",
+        path="/p2p/orders",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.list_orders",
+        template="p2p/order/list.html"
+    ),
+    RouteDefinition(
+        name="order_create_form",
+        path="/p2p/orders/create",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.create_order_form",
+        template="p2p/order/create.html"
+    ),
+    RouteDefinition(
+        name="order_create",
+        path="/p2p/orders/create",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.create_order",
+        template="p2p/order/create.html"
+    ),
+    RouteDefinition(
+        name="order_detail",
+        path="/p2p/orders/{document_number}",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.get_order",
+        template="p2p/order/detail.html"
+    ),
+    RouteDefinition(
+        name="order_update_form",
+        path="/p2p/orders/{document_number}/edit",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.update_order_form",
+        template="p2p/order/create.html"
+    ),
+    RouteDefinition(
+        name="order_update",
+        path="/p2p/orders/{document_number}/edit",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.update_order",
+        template="p2p/order/create.html"
+    ),
+    RouteDefinition(
+        name="order_receive_form",
+        path="/p2p/orders/{document_number}/receive",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.receive_order_form",
+        template="p2p/order/receive.html"
+    ),
+    
+    # P2P Requisition API Routes
+    RouteDefinition(
+        name="api_requisition_list",
+        path="/api/v1/p2p/requisitions",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.api_list_requisitions",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_detail",
+        path="/api/v1/p2p/requisitions/{document_number}",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.api_get_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_create",
+        path="/api/v1/p2p/requisitions",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_create_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_update",
+        path="/api/v1/p2p/requisitions/{document_number}",
+        methods=[HttpMethod.PUT],
+        controller="controllers.p2p_controller.api_update_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_submit",
+        path="/api/v1/p2p/requisitions/{document_number}/submit",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_submit_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_approve",
+        path="/api/v1/p2p/requisitions/{document_number}/approve",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_approve_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_requisition_reject",
+        path="/api/v1/p2p/requisitions/{document_number}/reject",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_reject_requisition",
+        template=None
+    ),
+    
+    # P2P Order API Routes
+    RouteDefinition(
+        name="api_order_list",
+        path="/api/v1/p2p/orders",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.api_list_orders",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_detail",
+        path="/api/v1/p2p/orders/{document_number}",
+        methods=[HttpMethod.GET],
+        controller="controllers.p2p_controller.api_get_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_create",
+        path="/api/v1/p2p/orders",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_create_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_from_requisition",
+        path="/api/v1/p2p/requisitions/{requisition_number}/create-order",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_create_order_from_requisition",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_update",
+        path="/api/v1/p2p/orders/{document_number}",
+        methods=[HttpMethod.PUT],
+        controller="controllers.p2p_controller.api_update_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_submit",
+        path="/api/v1/p2p/orders/{document_number}/submit",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_submit_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_approve",
+        path="/api/v1/p2p/orders/{document_number}/approve",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_approve_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_receive",
+        path="/api/v1/p2p/orders/{document_number}/receive",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_receive_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_complete",
+        path="/api/v1/p2p/orders/{document_number}/complete",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_complete_order",
+        template=None
+    ),
+    RouteDefinition(
+        name="api_order_cancel",
+        path="/api/v1/p2p/orders/{document_number}/cancel",
+        methods=[HttpMethod.POST],
+        controller="controllers.p2p_controller.api_cancel_order",
         template=None
     ),
     

@@ -5,79 +5,67 @@
     {
       "name": "Single Source of Truth",
       "description": "All routes MUST be defined in meta_routes.py only",
-      "regex": "app\\.(get|post|put|delete|patch)\\(.*\\)",
       "except_files": ["main.py"],
       "severity": "error"
     },
     {
       "name": "No URL Hardcoding",
       "description": "Do not hardcode URLs - use URL service",
-      "regex": "[\"\']/(api|v1|material|p2p|monitor)/",
       "except_files": ["meta_routes.py", "services/url_service.py"],
       "severity": "error"
     },
     {
       "name": "Controller Business Logic",
       "description": "Controllers should not contain business logic",
-      "regex": "state\\.(get|set)_state_async|\\s+if\\s+.*:\\s+.*\\s+elif\\s+",
       "include_files": ["controllers/*.py"],
       "severity": "warning"
     },
     {
       "name": "Thin Controllers",
       "description": "Controllers should be thin and delegate to services",
-      "regex": "def\\s+[^(]+\\([^)]*\\):\\s+[\\s\\S]{500,}",
       "include_files": ["controllers/*.py"],
       "severity": "warning"
     },
     {
       "name": "Service Dependencies",
       "description": "Services should not import controllers",
-      "regex": "from\\s+controllers\\s+import|import\\s+controllers",
       "include_files": ["services/*.py"],
       "severity": "error"
     },
     {
       "name": "Direct State Manipulation",
       "description": "Only data layer should manipulate state directly",
-      "regex": "state\\[\"[^\"]+\"\\]\\s*=",
       "except_files": ["models/*.py", "services/state_manager.py"],
       "severity": "error"
     },
     {
       "name": "Pydantic v2 Compatibility",
       "description": "Use Pydantic v2 syntax",
-      "regex": "\\.dict\\(|from\\s+pydantic\\s+import\\s+validator|class\\s+Config:",
       "severity": "warning"
     },
     {
       "name": "Type Hints",
       "description": "All functions must have type hints",
-      "regex": "def\\s+[^(]+\\([^)]*\\)\\s*([^:]|:\\s*[^\\s])",
       "severity": "warning"
     },
     {
       "name": "API Detection",
       "description": "Don't rely on hardcoded path checks for API detection",
-      "regex": "request\\.url\\.path\\.startswith\\(\"/api",
       "severity": "warning"
     },
     {
       "name": "URL Path Joining",
       "description": "Be careful with URL path joining to avoid double slashes",
-      "regex": "\\+\\s*\"/|/\"\\s*\\+|f\".*//.*\"",
       "severity": "warning"
     },
     {
       "name": "Missing Docstrings",
       "description": "All modules, classes and functions should have docstrings",
-      "regex": "^(class|def)\\s+[^\\s(]+[^:]*:\\s*(?![\"\\']{3}|#)",
       "severity": "warning"
     },
     {
       "name": "Global Exception Handling",
       "description": "Use global exception handlers instead of duplicating try/except",
-      "regex": "try:\\s+[\\s\\S]+?except\\s+Exception\\s+as\\s+e:",
       "include_files": ["controllers/*.py"],
       "except_files": ["utils/error_utils.py"],
       "severity": "warning"
@@ -85,10 +73,45 @@
     {
       "name": "Proper Separation of Concerns",
       "description": "Maintain proper boundaries between architectural layers",
-      "regex": "from\\s+fastapi\\s+import\\s+.*Request|request\\.",
       "include_files": ["services/*.py", "models/*.py"],
       "except_files": ["services/template_service.py", "services/url_service.py"],
       "severity": "error"
+    },
+    {
+      "name": "MVP Focus",
+      "description": "This is just MVP0.15 - keep things simple & focused",
+      "severity": "error"
+    },
+    {
+      "name": "File Size Management",
+      "description": "Do not generate giant files - create helper python files for potentially large components",
+      "severity": "error"
+    },
+    {
+      "name": "Code Generation Reference",
+      "description": "Review existing files from the source base for every code generation",
+      "severity": "warning"
+    },
+    {
+      "name": "Dependency Management",
+      "description": "Encapsulation and managing dependencies & imports is extremely important",
+      "severity": "warning"
+    },
+    {
+      "name": "FastAPI Parameter Handling",
+      "description": "Pay attention to how FastAPI extracts parameters and potential async/sync conflicts",
+      "include_files": ["controllers/*.py"],
+      "severity": "warning"
     }
-  ]
+  ],
+  "code_generation_guidance": {
+    "general_principles": [
+      "This is just MVP0.15 - keeping things simple & focused is your challenge",
+      "Do not generate giant files - create helper python files for potentially large components",
+      "Review existing files from the source base for every code generation",
+      "Encapsulation and managing dependencies & imports is extremely important",
+      "Pay attention to how FastAPI extracts parameters and potential async/sync conflicts",
+      "Output code as separate, downloadable python files"
+    ]
+  }
 }

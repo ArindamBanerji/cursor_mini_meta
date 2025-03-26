@@ -7,6 +7,13 @@ from services.url_service import url_service
 from utils.error_utils import ValidationError, NotFoundError, BadRequestError
 import logging
 
+# Import session utilities
+from middleware.session import (
+    add_flash_message, get_flash_messages, 
+    store_form_data, get_form_data,
+    get_session_data, set_session_data
+)
+
 # Configure logging
 logger = logging.getLogger("controllers")
 
@@ -171,6 +178,12 @@ class BaseController:
             # Log validation errors
             logger.warning(f"Validation error in form data: {validation_errors}")
             
+            # Store form data in session for redisplay
+            try:
+                store_form_data(request, form_dict)
+            except Exception as session_error:
+                logger.warning(f"Could not store form data in session: {str(session_error)}")
+            
             # Raise our application-level ValidationError
             raise ValidationError(
                 message="Invalid form data",
@@ -235,41 +248,96 @@ class BaseController:
             status_code=status_code,
             content={
                 "success": False,
-                "error": error_code,
                 "message": message,
-                "details": details or {}
+                "error_code": error_code,
+                "details": details
             }
         )
     
     @staticmethod
     def redirect_to_route(
-        route_name: str, 
+        route_name: str,
         params: Optional[Dict[str, Any]] = None,
         query_params: Optional[Dict[str, Any]] = None,
-        status_code: int = 303  # 303 See Other
+        status_code: int = 303,  # 303 See Other
+        flash_message: Optional[str] = None,
+        flash_type: str = "success"
     ) -> RedirectResponse:
         """
         Create a redirect response to a named route.
         
         Args:
             route_name: Name of the route to redirect to
-            params: Optional route parameters
-            query_params: Optional query parameters
+            params: Path parameters for the route
+            query_params: Query parameters for the route
+            status_code: HTTP status code for the redirect
+            flash_message: Optional message to flash to the user
+            flash_type: Type of flash message (success, error, info, warning)
+            
+        Returns:
+            RedirectResponse to the specified route
+        """
+        # Generate the URL for the route
+        url = url_service.get_url_for_route(route_name, params, query_params)
+        
+        # Create the redirect response
+        response = RedirectResponse(url=url, status_code=status_code)
+        
+        # Add flash message if provided
+        if flash_message:
+            # The request is passed as a dependency to the controller function,
+            # so we need to access it through the middleware directly
+            add_flash_message({"session": {}}, flash_message, flash_type, response)
+        
+        return response
+    
+    @staticmethod
+    def add_flash_message(request: Request, message: str, type: str = "info") -> None:
+        """
+        Add a flash message to the session.
+        
+        Args:
+            request: FastAPI request
+            message: Message to display
+            type: Message type (success, error, info, warning)
+        """
+        try:
+            add_flash_message(request, message, type)
+        except Exception as e:
+            logger.warning(f"Could not add flash message: {str(e)}")
+    
+    @staticmethod
+    def redirect_with_message(
+        route_name: str,
+        message: str,
+        message_type: str = "success",
+        params: Optional[Dict[str, Any]] = None,
+        query_params: Optional[Dict[str, Any]] = None,
+        status_code: int = 303  # 303 See Other
+    ) -> RedirectResponse:
+        """
+        Create a redirect response to a named route with a flash message.
+        Convenience method combining redirect_to_route and add_flash_message.
+        
+        Args:
+            route_name: Name of the route to redirect to
+            message: Flash message to display
+            message_type: Type of flash message (success, error, info, warning)
+            params: Path parameters for the route
+            query_params: Query parameters for the route
             status_code: HTTP status code for the redirect
             
         Returns:
-            RedirectResponse to the generated URL
+            RedirectResponse to the specified route with a flash message
         """
-        # Get the base URL for the route
-        url = url_service.get_url_for_route(route_name, params)
-        
-        # Add query parameters if provided
-        if query_params:
-            query_string = "&".join(f"{key}={value}" for key, value in query_params.items())
-            url = f"{url}?{query_string}"
-            
-        # Create and return the redirect response
-        return RedirectResponse(url=url, status_code=status_code)
+        return BaseController.redirect_to_route(
+            route_name=route_name,
+            params=params,
+            query_params=query_params,
+            status_code=status_code,
+            flash_message=message,
+            flash_type=message_type
+        )
     
     @staticmethod
     def handle_form_errors(
@@ -279,90 +347,121 @@ class BaseController:
         validation_error: ValidationError
     ) -> Dict[str, Any]:
         """
-        Handle validation errors for form submissions.
+        Handle form validation errors for UI controllers.
         
         Args:
             request: FastAPI request
-            template_name: Template name for rendering
-            context: Current template context
-            validation_error: The validation error
+            template_name: Template to render
+            context: Template context
+            validation_error: Validation error that occurred
             
         Returns:
-            Updated template context with error information
-        """
-        # Add error information to the context
-        updated_context = context.copy()
-        
-        # Add validation errors
-        updated_context["errors"] = validation_error.details.get("validation_errors", {})
-        
-        # Add general error message
-        updated_context["error_message"] = validation_error.message
-        
-        # Add submitted form data if available
-        form_data = validation_error.details.get("submitted_data")
-        if form_data:
-            updated_context["form_data"] = form_data
+            Updated context with error information
             
-        # Log the error
-        logger.warning(f"Form validation error in {template_name}: {validation_error.message}")
+        This method adds flash messages and populates the context
+        with validation errors and previously submitted form data.
+        """
+        # Extract validation errors
+        details = validation_error.details or {}
+        validation_errors = details.get("validation_errors", {})
         
-        return updated_context
+        # Add validation errors to the context
+        context["validation_errors"] = validation_errors
+        
+        # Add error message as flash message
+        try:
+            add_flash_message(request, validation_error.message, "error")
+        except Exception as e:
+            logger.warning(f"Could not add flash message: {str(e)}")
+            # Fall back to adding error to context
+            context["error_message"] = validation_error.message
+        
+        # Get stored form data
+        try:
+            form_data = get_form_data(request)
+            if form_data:
+                context["form_data"] = form_data
+        except Exception as e:
+            logger.warning(f"Could not retrieve form data: {str(e)}")
+            # Use submitted data from the validation error if available
+            if "submitted_data" in details:
+                context["form_data"] = details["submitted_data"]
+        
+        return context
+    
+    @staticmethod
+    def get_form_data(request: Request) -> Dict[str, Any]:
+        """
+        Get stored form data from the session.
+        
+        Args:
+            request: FastAPI request
+            
+        Returns:
+            Dictionary of form field values
+        """
+        try:
+            return get_form_data(request) or {}
+        except Exception as e:
+            logger.warning(f"Could not retrieve form data: {str(e)}")
+            return {}
     
     @classmethod
     def dependency_injection(cls, service_getter: Callable) -> Callable:
         """
-        Create a FastAPI dependency for injecting services.
-        This improves testability by allowing service mocking.
+        Create a dependency injection function for FastAPI.
         
         Args:
             service_getter: Function that returns a service instance
             
         Returns:
-            A dependency callable for FastAPI
+            Dependency function for FastAPI
         """
         def get_service():
-            return service_getter()
-        
-        # Set a name for easier debugging
-        get_service.__name__ = f"get_{service_getter.__name__}"
-        
-        return Depends(get_service)
-
+            try:
+                return service_getter()
+            except Exception as e:
+                logger.error(f"Error getting service: {str(e)}", exc_info=True)
+                raise BadRequestError(
+                    message=f"Service dependency error: {str(e)}"
+                )
+        return get_service
+    
     @staticmethod
     def handle_api_error(e: Exception) -> JSONResponse:
         """
-        Handle various error types and return appropriate JSON responses.
+        Handle API errors for consistent responses.
         
         Args:
-            e: The exception to handle
+            e: Exception that was raised
             
         Returns:
             Standardized error response
         """
-        if isinstance(e, NotFoundError):
-            return BaseController.create_error_response(
-                message=str(e),
-                error_code="not_found",
-                details=getattr(e, 'details', {"material_id": str(e).split()[-1]}),
-                status_code=404
-            )
-        elif isinstance(e, ValidationError):
+        if isinstance(e, ValidationError):
             return BaseController.create_error_response(
                 message=e.message,
                 error_code="validation_error",
                 details=e.details,
                 status_code=400
             )
+        elif isinstance(e, NotFoundError):
+            return BaseController.create_error_response(
+                message=e.message,
+                error_code="not_found",
+                details=e.details,
+                status_code=404
+            )
         elif isinstance(e, BadRequestError):
             return BaseController.create_error_response(
-                message=str(e),
+                message=e.message,
                 error_code="bad_request",
+                details=e.details,
                 status_code=400
             )
         else:
-            # Log unexpected errors
-            logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+            # For unexpected errors, log them but don't expose details
+            logger.error(f"Unexpected API error: {str(e)}", exc_info=True)
             return BaseController.create_error_response(
                 message="An unexpected error occurred",
                 error_code="server_error",

@@ -33,35 +33,107 @@ class AppError(Exception):
             "details": self.details
         }
 
-class ValidationError(AppError):
-    """Exception for data validation errors"""
-    status_code = status.HTTP_400_BAD_REQUEST
-    error_code = "validation_error"
+class ValidationError(Exception):
+    """Exception raised when data validation fails."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "validation_error",
+            "details": self.details
+        }
 
-class NotFoundError(AppError):
-    """Exception for resource not found errors"""
-    status_code = status.HTTP_404_NOT_FOUND
-    error_code = "not_found"
+class NotFoundError(Exception):
+    """Exception raised when a requested resource cannot be found."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "not_found",
+            "details": self.details
+        }
 
-class AuthenticationError(AppError):
-    """Exception for authentication errors"""
-    status_code = status.HTTP_401_UNAUTHORIZED
-    error_code = "authentication_error"
+class AuthenticationError(Exception):
+    """Exception raised when authentication fails."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "authentication_error",
+            "details": self.details
+        }
 
-class AuthorizationError(AppError):
-    """Exception for authorization errors"""
-    status_code = status.HTTP_403_FORBIDDEN
-    error_code = "authorization_error"
+class AuthorizationError(Exception):
+    """Exception raised when authorization fails."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "authorization_error",
+            "details": self.details
+        }
 
-class BadRequestError(AppError):
-    """Exception for general bad request errors"""
-    status_code = status.HTTP_400_BAD_REQUEST
-    error_code = "bad_request"
+class BadRequestError(Exception):
+    """Exception raised when a request is malformed or invalid."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "bad_request",
+            "details": self.details
+        }
 
-class ConflictError(AppError):
-    """Exception for data conflict errors"""
-    status_code = status.HTTP_409_CONFLICT
-    error_code = "conflict"
+class ConflictError(Exception):
+    """Exception raised when a request conflicts with the current state of the server."""
+    def __init__(self, message, details=None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(message)
+        
+    def to_dict(self):
+        """Convert the error to a dictionary representation."""
+        return {
+            "success": False,
+            "status": "error",
+            "message": self.message,
+            "error_code": "conflict",
+            "details": self.details
+        }
 
 def create_error_response(error: AppError) -> JSONResponse:
     """

@@ -29,7 +29,7 @@ class TemplateService:
         # Add url_for function to templates
         self.templates.env.globals["url_for"] = self.url_for
     
-    def url_for(self, name: str, params: Optional[Dict[str, Any]] = None, **kwargs) -> str:
+    def url_for(self, name: str, params: Optional[Dict[str, Any]] = None, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """
         Generate URL for a route by name, to be used in templates.
         Supports both dictionary params and keyword arguments.
@@ -37,22 +37,28 @@ class TemplateService:
         Args:
             name: Name of the route
             params: Parameters for the route as a dictionary (optional)
+            query_params: Query parameters as a dictionary (optional)
             **kwargs: Additional parameters as keyword arguments
             
         Returns:
             Formatted URL string
         """
+        path_params = None
+        
         # If params is provided as a dictionary, use it
         if isinstance(params, dict):
-            return url_service.get_url_for_route(name, params)
-        
-        # Otherwise, use kwargs if provided
+            path_params = params
+        # Otherwise, extract path params from kwargs
         elif kwargs:
-            return url_service.get_url_for_route(name, kwargs)
-        
-        # If neither is provided, pass None
-        else:
-            return url_service.get_url_for_route(name, None)
+            # Extract parameters with a reserved kwarg for query_params
+            if 'query_params' in kwargs and path_params is None:
+                query_params = kwargs.pop('query_params')
+            
+            # Use remaining kwargs as path params
+            path_params = kwargs if kwargs else None
+            
+        # Call the url service with the appropriate parameters
+        return url_service.get_url_for_route(name, path_params, query_params)
 
     def render_template(self, request: Request, template_name: str, context: Dict[str, Any]) -> HTMLResponse:
         """

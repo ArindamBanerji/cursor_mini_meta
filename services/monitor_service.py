@@ -72,7 +72,7 @@ class MonitorService:
         """
         self.core.update_component_status(component_name, status, details)
     
-    def get_component_status(self, component_name: Optional[str] = None):
+    def get_component_status(self, component_name: Optional[str] = None) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
         Get status information for one or all components.
         
@@ -80,18 +80,28 @@ class MonitorService:
             component_name: Optional name of specific component
             
         Returns:
-            Component status information
+            If component_name is provided, returns status dict for that component.
+            Otherwise, returns list of component status dicts.
         """
-        return self.core.get_component_status(component_name)
+        all_components = self.core.get_component_status(component_name)
+        
+        # If no components are registered yet, return an empty list
+        if not all_components and component_name is None:
+            return []
+            
+        return all_components
     
     # ==== Health check methods (delegated to health) ====
     
-    def check_system_health(self) -> Dict[str, Any]:
+    def check_health(self) -> Dict[str, Any]:
         """
         Perform a comprehensive system health check.
         
         Returns:
-            Dictionary with health check results
+            Dictionary with health check results including:
+            - overall_status: Overall health status
+            - components: Status of individual components
+            - details: Additional health details
         """
         return self.health.check_system_health()
     
@@ -105,6 +115,18 @@ class MonitorService:
             SystemMetrics instance with current metrics
         """
         return self.metrics.collect_current_metrics()
+    
+    def get_system_metrics(self, hours: Optional[int] = None) -> List[SystemMetrics]:
+        """
+        Get system metrics for specified time period.
+        
+        Args:
+            hours: Number of hours to look back (None for all available)
+            
+        Returns:
+            List of SystemMetrics objects
+        """
+        return self.metrics.get_metrics(hours)
     
     def get_metrics(self, hours: Optional[int] = None) -> List[SystemMetrics]:
         """

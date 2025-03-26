@@ -24,6 +24,13 @@
     </div>
     {% endif %}
     
+    <!-- Flash messages from session -->
+    {% for message in get_flash_messages(request) %}
+    <div class="alert alert-{{ message.type }}">
+        {{ message.message }}
+    </div>
+    {% endfor %}
+    
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">{{ material.name }}</h3>
@@ -50,105 +57,113 @@
                             <td>{{ material.material_number }}</td>
                         </tr>
                         <tr>
-                            <th>Name:</th>
-                            <td>{{ material.name }}</td>
-                        </tr>
-                        <tr>
                             <th>Description:</th>
-                            <td>{{ material.description or 'No description provided' }}</td>
+                            <td>{{ material.description }}</td>
                         </tr>
                         <tr>
-                            <th>Type:</th>
-                            <td>{{ material.type }}</td>
-                        </tr>
-                        <tr>
-                            <th>Status:</th>
-                            <td>{{ material.status }}</td>
+                            <th>Material Type:</th>
+                            <td>{{ material.material_type }}</td>
                         </tr>
                         <tr>
                             <th>Base Unit:</th>
                             <td>{{ material.base_unit }}</td>
                         </tr>
+                        <tr>
+                            <th>Created At:</th>
+                            <td>{{ material.created_at_formatted }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated:</th>
+                            <td>{{ material.updated_at_formatted }}</td>
+                        </tr>
                     </table>
                 </div>
-                
                 <div class="col-md-6">
                     <h4>Additional Information</h4>
                     <table class="table table-sm">
                         <tr>
-                            <th>Weight:</th>
-                            <td>{% if material.weight %}{{ material.weight }} {{ material.base_unit }}{% else %}Not specified{% endif %}</td>
+                            <th>Purchasing Group:</th>
+                            <td>{{ material.purchasing_data.purchasing_group }}</td>
                         </tr>
                         <tr>
-                            <th>Volume:</th>
-                            <td>{% if material.volume %}{{ material.volume }} cubic {{ material.base_unit }}{% else %}Not specified{% endif %}</td>
+                            <th>Purchasing Status:</th>
+                            <td>{{ material.purchasing_data.purchasing_status }}</td>
                         </tr>
                         <tr>
-                            <th>Dimensions:</th>
+                            <th>Purchasing Min Qty:</th>
+                            <td>{{ material.purchasing_data.min_order_qty }} {{ material.base_unit }}</td>
+                        </tr>
+                        <tr>
+                            <th>Base Price:</th>
+                            <td>{{ material.purchasing_data.base_price }} {{ material.purchasing_data.currency }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tax Code:</th>
+                            <td>{{ material.purchasing_data.tax_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>Availability:</th>
                             <td>
-                                {% if material.dimensions %}
-                                    {% for key, value in material.dimensions.items() %}
-                                        {{ key }}: {{ value }}{{ " " + material.base_unit if key in ['length', 'width', 'height'] else '' }}
-                                        {% if not loop.last %}<br>{% endif %}
-                                    {% endfor %}
+                                {% if material.purchasing_data.availability %}
+                                <span class="badge bg-success">Available</span>
                                 {% else %}
-                                    Not specified
+                                <span class="badge bg-danger">Not Available</span>
                                 {% endif %}
                             </td>
-                        </tr>
-                        <tr>
-                            <th>Created:</th>
-                            <td>{{ material.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        </tr>
-                        <tr>
-                            <th>Last Updated:</th>
-                            <td>{{ material.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
                         </tr>
                     </table>
                 </div>
             </div>
             
-            <!-- Action buttons -->
-            <div class="action-buttons mt-3">
-                {% if material.status != 'DEPRECATED' %}
-                <a href="{{ url_for('material_update_form', {'material_id': material.material_number}) }}" class="btn btn-primary">
-                    Edit Material
-                </a>
-                <a href="{{ url_for('material_deprecate', {'material_id': material.material_number}) }}" 
-                   class="btn btn-warning"
-                   onclick="return confirm('Are you sure you want to deprecate this material? This action may affect associated documents.')">
-                    Deprecate Material
-                </a>
-                {% else %}
-                <div class="alert alert-warning">
-                    This material has been deprecated and cannot be modified.
+            <div class="action-buttons mt-4 d-flex justify-content-between">
+                <div>
+                    <a href="{{ url_for('material_update_form', {'material_number': material.material_number}) }}" 
+                       class="btn btn-primary">Edit Material</a>
+                    
+                    {% if material.status != 'DEPRECATED' %}
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deprecateModal">
+                        Deprecate Material
+                    </button>
+                    {% endif %}
                 </div>
-                {% endif %}
+                <div>
+                    <a href="{{ url_for('requisition_create_form', {'material_number': material.material_number}) }}" 
+                       class="btn btn-success">Create Requisition</a>
+                    <a href="{{ url_for('order_create_form', {'material_number': material.material_number}) }}" 
+                       class="btn btn-info">Create Order</a>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- Related procurement documents -->
+    <!-- Related Documents Tabs -->
     <div class="related-documents mt-4">
-        <h3>Related Procurement Documents</h3>
+        <h3>Related Documents</h3>
         
-        <ul class="nav nav-tabs" id="documentTabs" role="tablist">
+        <ul class="nav nav-tabs" id="relatedDocumentsTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="requisitions-tab" data-bs-toggle="tab" data-bs-target="#requisitions-content" 
-                        type="button" role="tab" aria-controls="requisitions-content" aria-selected="true">
-                    Requisitions
+                <button class="nav-link active" id="requisitions-tab" data-bs-toggle="tab" 
+                        data-bs-target="#requisitions-content" type="button" role="tab" 
+                        aria-controls="requisitions-content" aria-selected="true">
+                    Requisitions 
+                    {% if related_documents.requisitions %}
+                    <span class="badge bg-secondary">{{ related_documents.requisitions|length }}</span>
+                    {% endif %}
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders-content" 
-                        type="button" role="tab" aria-controls="orders-content" aria-selected="false">
+                <button class="nav-link" id="orders-tab" data-bs-toggle="tab" 
+                        data-bs-target="#orders-content" type="button" role="tab" 
+                        aria-controls="orders-content" aria-selected="false">
                     Purchase Orders
+                    {% if related_documents.orders %}
+                    <span class="badge bg-secondary">{{ related_documents.orders|length }}</span>
+                    {% endif %}
                 </button>
             </li>
         </ul>
         
-        <div class="tab-content" id="documentTabsContent">
-            <!-- Requisitions tab -->
+        <div class="tab-content" id="relatedDocumentsContent">
             <div class="tab-pane fade show active" id="requisitions-content" role="tabpanel" aria-labelledby="requisitions-tab">
                 {% if related_documents.requisitions %}
                 <div class="table-responsive mt-3">
@@ -163,16 +178,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for req in related_documents.requisitions %}
+                            {% for requisition in related_documents.requisitions %}
                             <tr>
-                                <td>{{ req.document_number }}</td>
-                                <td>{{ req.description }}</td>
+                                <td>{{ requisition.document_number }}</td>
+                                <td>{{ requisition.description }}</td>
                                 <td>
-                                    <span class="badge bg-{{ req.status_color }}">{{ req.status }}</span>
+                                    <span class="badge bg-{{ requisition.status_color }}">{{ requisition.status }}</span>
                                 </td>
-                                <td>{{ req.created_at_formatted }}</td>
+                                <td>{{ requisition.created_at_formatted }}</td>
                                 <td>
-                                    <a href="{{ url_for('p2p_requisition_detail', {'document_number': req.document_number}) }}" 
+                                    <a href="{{ url_for('requisition_detail', {'document_number': requisition.document_number}) }}" 
                                        class="btn btn-sm btn-info">View</a>
                                 </td>
                             </tr>
@@ -187,7 +202,6 @@
                 {% endif %}
             </div>
             
-            <!-- Orders tab -->
             <div class="tab-pane fade" id="orders-content" role="tabpanel" aria-labelledby="orders-tab">
                 {% if related_documents.orders %}
                 <div class="table-responsive mt-3">
@@ -198,6 +212,7 @@
                                 <th>Description</th>
                                 <th>Status</th>
                                 <th>Vendor</th>
+                                <th>Total Value</th>
                                 <th>Created</th>
                                 <th>Actions</th>
                             </tr>
@@ -209,11 +224,13 @@
                                 <td>{{ order.description }}</td>
                                 <td>
                                     <span class="badge bg-{{ order.status_color }}">{{ order.status }}</span>
+                                    {% if order.urgent %}<span class="badge bg-warning">URGENT</span>{% endif %}
                                 </td>
                                 <td>{{ order.vendor }}</td>
+                                <td>{{ order.total_value|round(2) }} {{ order.items[0].currency if order.items else 'USD' }}</td>
                                 <td>{{ order.created_at_formatted }}</td>
                                 <td>
-                                    <a href="{{ url_for('p2p_order_detail', {'document_number': order.document_number}) }}" 
+                                    <a href="{{ url_for('order_detail', {'document_number': order.document_number}) }}" 
                                        class="btn btn-sm btn-info">View</a>
                                 </td>
                             </tr>
@@ -229,6 +246,77 @@
             </div>
         </div>
     </div>
+    
+    <!-- Material Usage Summary -->
+    {% if related_documents.usage_summary %}
+    <div class="usage-summary mt-4">
+        <h3>Material Usage Summary</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Requisition Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Total Requisitions:</th>
+                                <td>{{ related_documents.usage_summary.total_requisitions }}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Quantity Requested:</th>
+                                <td>{{ related_documents.usage_summary.total_req_quantity|round(2) }} {{ material.base_unit }}</td>
+                            </tr>
+                            <tr>
+                                <th>Average Price:</th>
+                                <td>{{ related_documents.usage_summary.avg_req_price|round(2) }} USD per {{ material.base_unit }}</td>
+                            </tr>
+                            <tr>
+                                <th>Status Breakdown:</th>
+                                <td>
+                                    {% for status, count in related_documents.usage_summary.req_status_counts.items() %}
+                                    <span class="badge bg-secondary">{{ status }}: {{ count }}</span>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Order Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Total Orders:</th>
+                                <td>{{ related_documents.usage_summary.total_orders }}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Quantity Ordered:</th>
+                                <td>{{ related_documents.usage_summary.total_order_quantity|round(2) }} {{ material.base_unit }}</td>
+                            </tr>
+                            <tr>
+                                <th>Received Quantity:</th>
+                                <td>{{ related_documents.usage_summary.total_received_quantity|round(2) }} {{ material.base_unit }}</td>
+                            </tr>
+                            <tr>
+                                <th>Status Breakdown:</th>
+                                <td>
+                                    {% for status, count in related_documents.usage_summary.order_status_counts.items() %}
+                                    <span class="badge bg-secondary">{{ status }}: {{ count }}</span>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Material API Information (for developers) -->
     <div class="api-info mt-4">
@@ -254,6 +342,12 @@
                         <h5>Deprecate Material</h5>
                         <code>POST /api/v1/materials/{{ material.material_number }}/deprecate</code>
                         {% endif %}
+                        
+                        <h5>Get Related Requisitions</h5>
+                        <code>GET /api/v1/p2p/requisitions?material={{ material.material_number }}</code>
+                        
+                        <h5>Get Related Orders</h5>
+                        <code>GET /api/v1/p2p/orders?material={{ material.material_number }}</code>
                     </div>
                 </div>
             </div>
@@ -287,4 +381,31 @@
         margin-bottom: 1rem;
     }
 </style>
+
+<!-- Deprecate Material Modal -->
+<div class="modal fade" id="deprecateModal" tabindex="-1" aria-labelledby="deprecateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('api_deprecate_material', {'material_number': material.material_number}) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deprecateModalLabel">Deprecate Material</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger">Are you sure you want to deprecate this material?</p>
+                    <p>This action will mark the material as DEPRECATED and it will no longer be available for new requisitions or orders.</p>
+                    
+                    <div class="mb-3">
+                        <label for="deprecationReason" class="form-label">Reason for Deprecation</label>
+                        <textarea class="form-control" id="deprecationReason" name="reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Deprecate Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

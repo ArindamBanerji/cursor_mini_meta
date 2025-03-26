@@ -18,6 +18,7 @@ from services.template_service import TemplateService
 from utils.error_utils import setup_exception_handlers
 from router_builder import register_routes
 from service_initializer import perform_startup_tasks, perform_shutdown_tasks
+from middleware.session import SessionMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +38,7 @@ async def lifespan(app: FastAPI):
     Replaces the deprecated on_event handlers.
     """
     # Startup logic
-    logger.info("SAP Test Harness v1.6 starting...")
+    logger.info("SAP Test Harness v1.7 starting...")
     
     try:
         # Perform all startup tasks
@@ -67,8 +68,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SAP Test Harness",
     description="Test API for SAP Integration",
-    version="1.6.0",
+    version="1.7.0",
     lifespan=lifespan
+)
+
+# Add session middleware
+app.add_middleware(
+    SessionMiddleware,
+    session_cookie="sap_session",
+    secure=False,  # Set to True in production with HTTPS
+    expiry_minutes=30
 )
 
 # Set up error handlers
@@ -107,7 +116,7 @@ async def startup_event():
     This ensures all services are properly initialized
     when the application starts.
     """
-    logger.info("SAP Test Harness v1.6 starting...")
+    logger.info("SAP Test Harness v1.7 starting...")
     
     try:
         # Perform all startup tasks

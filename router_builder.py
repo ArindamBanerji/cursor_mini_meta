@@ -9,7 +9,8 @@ import logging
 from typing import List, Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from meta_routes import ALL_ROUTES, HttpMethod, RouteDefinition
+from routes.meta_routes import ALL_ROUTES, RouteDefinition
+from routes.http_method import HttpMethod
 
 # Configure logging
 logger = logging.getLogger("router_builder")

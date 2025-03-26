@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-3">
+        <div class="col">
+            <h1>Purchase Order Details</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('order_list') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <!-- Status messages -->
+    {% if request.query_params.get('error') %}
+    <div class="alert alert-danger">
+        {{ request.query_params.get('error') }}
+    </div>
+    {% endif %}
+    
+    {% if request.query_params.get('message') %}
+    <div class="alert alert-success">
+        {{ request.query_params.get('message') }}
+    </div>
+    {% endif %}
+    
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">{{ order.document_number }}</h3>
+            <div class="status-badge">
+                {% if order.status == 'DRAFT' %}
+                <span class="badge bg-secondary">{{ order.status }}</span>
+                {% elif order.status == 'SUBMITTED' %}
+                <span class="badge bg-info">{{ order.status }}</span>
+                {% elif order.status == 'APPROVED' %}
+                <span class="badge bg-primary">{{ order.status }}</span>
+                {% elif order.status == 'REJECTED' %}
+                <span class="badge bg-danger">{{ order.status }}</span>
+                {% elif order.status == 'RECEIVED' %}
+                <span class="badge bg-success">{{ order.status }}</span>
+                {% elif order.status == 'PARTIALLY_RECEIVED' %}
+                <span class="badge bg-warning">{{ order.status }}</span>
+                {% elif order.status == 'COMPLETED' %}
+                <span class="badge bg-success">{{ order.status }}</span>
+                {% elif order.status == 'CANCELED' %}
+                <span class="badge bg-dark">{{ order.status }}</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ order.status }}</span>
+                {% endif %}
+                
+                {% if order.urgent %}
+                <span class="badge bg-warning">URGENT</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Basic Information</h4>
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Order Number:</th>
+                            <td>{{ order.document_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>Description:</th>
+                            <td>{{ order.description }}</td>
+                        </tr>
+                        <tr>
+                            <th>Requester:</th>
+                            <td>{{ order.requester }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vendor:</th>
+                            <td>{{ order.vendor }}</td>
+                        </tr>
+                        <tr>
+                            <th>Payment Terms:</th>
+                            <td>{{ order.payment_terms or 'Not specified' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Type:</th>
+                            <td>{{ order.type }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>{{ order.status }}</td>
+                        </tr>
+                        <tr>
+                            <th>Urgent:</th>
+                            <td>{{ 'Yes' if order.urgent else 'No' }}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="col-md-6">
+                    <h4>Additional Information</h4>
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Total Value:</th>
+                            <td>{{ order.total_value|round(2) }} {{ order.items[0].currency if order.items else 'USD' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created:</th>
+                            <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated:</th>
+                            <td>{{ order.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        </tr>
+                        {% if order.requisition_reference %}
+                        <tr>
+                            <th>Created From Requisition:</th>
+                            <td>
+                                <a href="{{ url_for('requisition_detail', {'document_number': order.requisition_reference}) }}">
+                                    {{ order.requisition_reference }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if order.notes %}
+                        <tr>
+                            <th>Notes:</th>
+                            <td>{{ order.notes }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Order Items -->
+            <h4 class="mt-4">Items</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Material</th>
+                            <th>Description</th>
+                            <th>Quantity</th>
+                            <th>Received</th>
+                            <th>Unit</th>
+                            <th>Price</th>
+                            <th>Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items %}
+                        <tr>
+                            <td>{{ item.item_number }}</td>
+                            <td>
+                                {% if item.material_number %}
+                                <a href="{{ url_for('material_detail', {'material_id': item.material_number}) }}">
+                                    {{ item.material_number }}
+                                </a>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ item.description }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>
+                                {{ item.received_quantity }} 
+                                {% if item.received_quantity > 0 and item.received_quantity < item.quantity %}
+                                <small class="text-muted">({{ (item.received_quantity / item.quantity * 100)|round(1) }}%)</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.unit }}</td>
+                            <td>{{ item.price }} {{ item.currency }}</td>
+                            <td>{{ item.quantity * item.price }} {{ item.currency }}</td>
+                            <td>
+                                {% if item.status == 'OPEN' %}
+                                <span class="badge bg-secondary">{{ item.status }}</span>
+                                {% elif item.status == 'PARTIALLY_RECEIVED' %}
+                                <span class="badge bg-warning">{{ item.status }}</span>
+                                {% elif item.status == 'RECEIVED' %}
+                                <span class="badge bg-success">{{ item.status }}</span>
+                                {% elif item.status == 'CANCELED' %}
+                                <span class="badge bg-dark">{{ item.status }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ item.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="7" class="text-end">Total Value:</th>
+                            <th>{{ order.total_value }} {{ order.items[0].currency if order.items else 'USD' }}</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Action buttons -->
+            <div class="action-buttons mt-4">
+                {% if can_edit %}
+                <a href="{{ url_for('order_update_form', {'document_number': order.document_number}) }}" 
+                   class="btn btn-primary">
+                    Edit Order
+                </a>
+                {% endif %}
+                
+                {% if can_submit %}
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#submitModal">
+                    Submit for Approval
+                </button>
+                {% endif %}
+                
+                {% if can_approve %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal">
+                    Approve
+                </button>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                    Reject
+                </button>
+                {% endif %}
+                
+                {% if can_receive %}
+                <a href="{{ url_for('receive_order_form', {'document_number': order.document_number}) }}" 
+                   class="btn btn-primary">
+                    Receive Items
+                </a>
+                {% endif %}
+                
+                {% if can_complete %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#completeModal">
+                    Complete Order
+                </button>
+                {% endif %}
+                
+                {% if can_cancel %}
+                <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                    Cancel Order
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Related Information -->
+    {% if related_requisition %}
+    <div class="related-requisition mt-4">
+        <h3>Related Requisition</h3>
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Requisition Number:</strong> 
+                        <a href="{{ url_for('requisition_detail', {'document_number': related_requisition.document_number}) }}">
+                            {{ related_requisition.document_number }}
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Status:</strong>
+                        <span class="badge bg-{% if related_requisition.status == 'APPROVED' %}primary{% elif related_requisition.status == 'ORDERED' %}success{% else %}secondary{% endif %}">
+                            {{ related_requisition.status }}
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Created By:</strong> {{ related_requisition.requester }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-12">
+                        <strong>Description:</strong> {{ related_requisition.description }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Modals for Actions -->
+    <!-- Submit Modal -->
+    <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="submitModalLabel">Submit Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to submit order {{ order.document_number }} for approval?</p>
+                    <p>This action cannot be undone. Once submitted, the order can no longer be edited.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="submitForm" method="POST" action="{{ url_for('api_order_submit', {'document_number': order.document_number}) }}">
+                        <button type="submit" class="btn btn-primary">Submit for Approval</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Approve Modal -->
+    <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approveModalLabel">Approve Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to approve order {{ order.document_number }}?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="approveForm" method="POST" action="{{ url_for('api_order_approve', {'document_number': order.document_number}) }}">
+                        <button type="submit" class="btn btn-success">Approve</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reject Modal -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabel">Reject Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Please provide a reason for rejecting order {{ order.document_number }}:</p>
+                    <div class="form-group">
+                        <label for="rejectReason">Rejection Reason</label>
+                        <textarea class="form-control" id="rejectReason" name="reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="submitReject">Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Complete Modal -->
+    <div class="modal fade" id="completeModal" tabindex="-1" aria-labelledby="completeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="completeModalLabel">Complete Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to mark order {{ order.document_number }} as completed?</p>
+                    {% if order.status == 'PARTIALLY_RECEIVED' %}
+                    <div class="alert alert-warning">
+                        <strong>Warning:</strong> This order is only partially received. 
+                        Some items have not been received in full quantity.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="completeForm" method="POST" action="{{ url_for('api_order_complete', {'document_number': order.document_number}) }}">
+                        <button type="submit" class="btn btn-success">Complete Order</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cancel Modal -->
+    <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cancelModalLabel">Cancel Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel order {{ order.document_number }}?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                    <div class="form-group">
+                        <label for="cancelReason">Cancellation Reason</label>
+                        <textarea class="form-control" id="cancelReason" name="reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Keep Order</button>
+                    <button type="button" class="btn btn-danger" id="confirmCancel">Yes, Cancel Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Receipt History Section -->
+    {% if order.status in ['PARTIALLY_RECEIVED', 'RECEIVED', 'COMPLETED'] %}
+    <div class="receipt-history mt-4">
+        <h3>Receipt History</h3>
+        <div class="alert alert-info">
+            <p>Receipt history functionality will be expanded in future versions.</p>
+            <p>Currently showing the most recent receipt status.</p>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Item #</th>
+                        <th>Description</th>
+                        <th>Ordered Qty</th>
+                        <th>Received Qty</th>
+                        <th>Remaining Qty</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.items %}
+                    <tr>
+                        <td>{{ item.item_number }}</td>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.received_quantity }}</td>
+                        <td>{{ item.quantity - item.received_quantity }}</td>
+                        <td>
+                            {% if item.status == 'OPEN' %}
+                            <span class="badge bg-secondary">{{ item.status }}</span>
+                            {% elif item.status == 'PARTIALLY_RECEIVED' %}
+                            <span class="badge bg-warning">{{ item.status }}</span>
+                            {% elif item.status == 'RECEIVED' %}
+                            <span class="badge bg-success">{{ item.status }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ item.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Order API Information (for developers) -->
+    <div class="api-info mt-4">
+        <div class="accordion" id="apiAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="apiHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#apiContent" aria-expanded="false" aria-controls="apiContent">
+                        API Information
+                    </button>
+                </h2>
+                <div id="apiContent" class="accordion-collapse collapse" aria-labelledby="apiHeading" data-bs-parent="#apiAccordion">
+                    <div class="accordion-body">
+                        <p>This order can be accessed via the API using the following endpoints:</p>
+                        
+                        <h5>Get Order Details</h5>
+                        <code>GET /api/v1/p2p/orders/{{ order.document_number }}</code>
+                        
+                        {% if order.status == 'DRAFT' %}
+                        <h5>Update Order</h5>
+                        <code>PUT /api/v1/p2p/orders/{{ order.document_number }}</code>
+                        
+                        <h5>Submit Order for Approval</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/submit</code>
+                        
+                        {% elif order.status == 'SUBMITTED' %}
+                        <h5>Approve Order</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/approve</code>
+                        
+                        <h5>Reject Order</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/reject</code>
+                        <pre>{"reason": "Reason for rejection"}</pre>
+                        
+                        {% elif order.status == 'APPROVED' %}
+                        <h5>Receive Order Items</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/receive</code>
+                        <pre>{
+  "received_items": {
+    "1": 10,  // item_number: quantity
+    "2": 5
+  }
+}</pre>
+                        
+                        {% elif order.status in ['RECEIVED', 'PARTIALLY_RECEIVED'] %}
+                        <h5>Complete Order</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/complete</code>
+                        {% endif %}
+                        
+                        {% if order.status not in ['COMPLETED', 'CANCELED'] %}
+                        <h5>Cancel Order</h5>
+                        <code>POST /api/v1/p2p/orders/{{ order.document_number }}/cancel</code>
+                        <pre>{"reason": "Reason for cancellation"}</pre>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card-header {
+        background-color: #f8f9fa;
+    }
+    
+    .table th {
+        width: 40%;
+    }
+    
+    .action-buttons {
+        border-top: 1px solid #dee2e6;
+        padding-top: 1rem;
+    }
+    
+    .api-info code {
+        display: block;
+        padding: 0.5rem;
+        background-color: #f8f9fa;
+        margin-bottom: 1rem;
+    }
+    
+    .api-info pre {
+        padding: 0.5rem;
+        background-color: #f8f9fa;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<script>
+    // Handle rejection form submission
+    document.getElementById('submitReject').addEventListener('click', function() {
+        const reasonText = document.getElementById('rejectReason').value;
+        if (!reasonText) {
+            alert('Please provide a rejection reason');
+            return;
+        }
+        
+        // Submit via fetch API
+        fetch('{{ url_for("api_order_reject", {"document_number": order.document_number}) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ reason: reasonText }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '{{ url_for("order_detail", {"document_number": order.document_number}) }}?message=' + encodeURIComponent('Order has been rejected');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    });
+    
+    // Handle cancel order
+    document.getElementById('confirmCancel').addEventListener('click', function() {
+        const reasonText = document.getElementById('cancelReason').value;
+        if (!reasonText) {
+            alert('Please provide a cancellation reason');
+            return;
+        }
+        
+        // Submit via fetch API
+        fetch('{{ url_for("api_order_cancel", {"document_number": order.document_number}) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ reason: reasonText }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '{{ url_for("order_detail", {"document_number": order.document_number}) }}?message=' + encodeURIComponent('Order has been cancelled');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    });
+</script>
+{% endblock %}
